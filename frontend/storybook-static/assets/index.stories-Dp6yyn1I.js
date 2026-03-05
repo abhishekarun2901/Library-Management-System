@@ -1,0 +1,6 @@
+import{t as e}from"./jsx-runtime-Ds4jeNO1.js";var t=e();const n=({className:e=``,description:n,title:r,label:i,...a})=>{let o=r??i;return(0,t.jsxs)(`button`,{className:`w-full cursor-pointer rounded-xl border border-gray-200 bg-white p-6 text-left transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${e}`.trim(),...a,children:[(0,t.jsx)(`p`,{className:`text-base font-semibold text-gray-900`,children:o}),n?(0,t.jsx)(`p`,{className:`mt-1 text-sm text-gray-600`,children:n}):null]})};n.__docgenInfo={description:``,methods:[],displayName:`QuickActionTile`,props:{title:{required:!1,tsType:{name:`ReactNode`},description:``},label:{required:!1,tsType:{name:`ReactNode`},description:``},description:{required:!1,tsType:{name:`ReactNode`},description:``},className:{defaultValue:{value:`""`,computed:!1},required:!1}}};var r={title:`Components/UI/QuickActionTile`,component:n};const i={args:{title:`Issue Book`,description:`Start circulation workflow`}};i.parameters={...i.parameters,docs:{...i.parameters?.docs,source:{originalSource:`{
+  args: {
+    title: "Issue Book",
+    description: "Start circulation workflow"
+  }
+}`,...i.parameters?.docs?.source}}};const a=[`Default`];export{i as Default,a as __namedExportsOrder,r as default};

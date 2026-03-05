@@ -1,0 +1,1234 @@
+{
+  "info": {
+    "name": "LBMS Role-Based Existing DB",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Role-organized collection (Admin/Member). Request bodies use IDs discovered from existing DB records via API calls."
+  },
+  "item": [
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Auth",
+          "item": [
+            {
+              "name": "Login Admin",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "auth",
+                    "login"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Admin login status', function () { pm.expect(pm.response.code).to.be.oneOf([200, 401, 403]); });",
+                      "if (pm.response.code === 200) {",
+                      "  const data = pm.response.json();",
+                      "  if (data.token) pm.environment.set('adminToken', data.token);",
+                      "  if (data.userId) pm.environment.set('adminUserId', data.userId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get Admin Profile (scope=me)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/users?scope=me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "scope",
+                      "value": "me"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Admin profile status', function () { pm.expect(pm.response.code).to.be.oneOf([200, 401, 403]); });",
+                      "if (pm.response.code === 200) {",
+                      "  const data = pm.response.json();",
+                      "  if (data.userId) pm.environment.set('adminUserId', data.userId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Catalog",
+          "item": [
+            {
+              "name": "List Books (save existingBookId)",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/v1/books?page=0&size=20&sortBy=title",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "books"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "0"
+                    },
+                    {
+                      "key": "size",
+                      "value": "20"
+                    },
+                    {
+                      "key": "sortBy",
+                      "value": "title"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('List books status', function () { pm.response.to.have.status(200); });",
+                      "const data = pm.response.json();",
+                      "const books = Array.isArray(data) ? data : (data.content || []);",
+                      "pm.test('Books found', function () { pm.expect(books.length).to.be.above(0); });",
+                      "if (books.length > 0) {",
+                      "  const b = books.find(x => x.isActive !== false) || books[0];",
+                      "  if (b.bookId) pm.environment.set('existingBookId', b.bookId);",
+                      "  if (b.title) pm.environment.set('existingBookTitle', b.title);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get Copies By Existing Book (save availableCopyId)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/copies?book_id={{existingBookId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "copies"
+                  ],
+                  "query": [
+                    {
+                      "key": "book_id",
+                      "value": "{{existingBookId}}"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Get copies status', function () { pm.expect(pm.response.code).to.be.oneOf([200, 401, 403, 404]); });",
+                      "if (pm.response.code === 200) {",
+                      "  const copies = pm.response.json();",
+                      "  if (Array.isArray(copies) && copies.length > 0) {",
+                      "    pm.environment.set('existingCopyId', copies[0].copyId);",
+                      "    const available = copies.find(c => (c.status || '').toUpperCase() === 'AVAILABLE');",
+                      "    if (available && available.copyId) pm.environment.set('availableCopyId', available.copyId);",
+                      "  }",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Search By ISBN (optional var)",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/v1/books?isbn={{existingIsbn}}&page=0&size=10&sortBy=title",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "books"
+                  ],
+                  "query": [
+                    {
+                      "key": "isbn",
+                      "value": "{{existingIsbn}}"
+                    },
+                    {
+                      "key": "page",
+                      "value": "0"
+                    },
+                    {
+                      "key": "size",
+                      "value": "10"
+                    },
+                    {
+                      "key": "sortBy",
+                      "value": "title"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('ISBN search status', function () { pm.expect(pm.response.code).to.be.oneOf([200, 400]); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update Existing Book",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"description\": \"Updated from Postman\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/books/{{existingBookId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "books",
+                    "{{existingBookId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Existing Book",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/books/{{existingBookId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "books",
+                    "{{existingBookId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Existing Copy Status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"LOST\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/copies/{{existingCopyId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "copies",
+                    "{{existingCopyId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Existing Copy",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/copies/{{existingCopyId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "copies",
+                    "{{existingCopyId}}"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "User Management",
+          "item": [
+            {
+              "name": "List Users (save targetUserId)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/users",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "users"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('List users status', function () { pm.expect(pm.response.code).to.be.oneOf([200, 401, 403]); });",
+                      "if (pm.response.code === 200) {",
+                      "  const data = pm.response.json();",
+                      "  const users = Array.isArray(data) ? data : (data.content || []);",
+                      "  if (users.length > 0) {",
+                      "    const adminId = pm.environment.get('adminUserId');",
+                      "    const target = users.find(u => u.userId !== adminId) || users[0];",
+                      "    if (target && target.userId) pm.environment.set('targetUserId', target.userId);",
+                      "  }",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "View Target User History",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/users?scope=history&userId={{targetUserId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "scope",
+                      "value": "history"
+                    },
+                    {
+                      "key": "userId",
+                      "value": "{{targetUserId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "View Target User Fines",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/users?scope=fines&userId={{targetUserId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "scope",
+                      "value": "fines"
+                    },
+                    {
+                      "key": "userId",
+                      "value": "{{targetUserId}}"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Target User",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fullName\": \"Postman Existing DB User\",\n  \"isActive\": true,\n  \"blacklistReason\": \"\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/users/{{targetUserId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "users",
+                    "{{targetUserId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Target User",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/users/{{targetUserId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "users",
+                    "{{targetUserId}}"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Oversight",
+          "item": [
+            {
+              "name": "View All Transactions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/transactions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "transactions"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Transactions status', function () { pm.expect(pm.response.code).to.be.oneOf([200,401,403]); });",
+                      "if (pm.response.code === 200) {",
+                      "  const list = pm.response.json();",
+                      "  if (Array.isArray(list) && list.length > 0 && list[0].transactionId) pm.environment.set('existingTransactionId', list[0].transactionId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "View Reservations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/reservations",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "reservations"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Reservations status', function () { pm.expect(pm.response.code).to.be.oneOf([200,401,403]); });",
+                      "if (pm.response.code === 200) {",
+                      "  const list = pm.response.json();",
+                      "  if (Array.isArray(list) && list.length > 0 && list[0].reservationId) pm.environment.set('existingReservationId', list[0].reservationId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "View Reports",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/reports",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "reports"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Reservation Status",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/reservations/{{existingReservationId}}?status=cancelled",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "reservations",
+                    "{{existingReservationId}}"
+                  ],
+                  "query": [
+                    {
+                      "key": "status",
+                      "value": "cancelled"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Delete Reservation (Admin)",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/reservations/{{existingReservationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "reservations",
+                    "{{existingReservationId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Existing Transaction",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"RETURNED\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/transactions/{{existingTransactionId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "transactions",
+                    "{{existingTransactionId}}"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Member",
+      "item": [
+        {
+          "name": "Auth",
+          "item": [
+            {
+              "name": "Login Member",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"{{memberEmail}}\",\n  \"password\": \"{{memberPassword}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/auth/login",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "auth",
+                    "login"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Member login status', function () { pm.expect(pm.response.code).to.be.oneOf([200, 401, 403]); });",
+                      "if (pm.response.code === 200) {",
+                      "  const data = pm.response.json();",
+                      "  if (data.token) pm.environment.set('memberToken', data.token);",
+                      "  if (data.userId) pm.environment.set('memberUserId', data.userId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Get Member Profile (scope=me)",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{memberToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/users?scope=me",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "scope",
+                      "value": "me"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Member profile status', function () { pm.expect(pm.response.code).to.be.oneOf([200, 401, 403]); });",
+                      "if (pm.response.code === 200) {",
+                      "  const data = pm.response.json();",
+                      "  if (data.userId) pm.environment.set('memberUserId', data.userId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Update My Profile",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{memberToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fullName\": \"Member Updated Via Postman\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/users/{{memberUserId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "users",
+                    "{{memberUserId}}"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Member update profile status', function () { pm.expect(pm.response.code).to.be.oneOf([200,400,401,403]); });"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Discovery",
+          "item": [
+            {
+              "name": "Browse Catalog",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/v1/books?page=0&size=10&sortBy=title",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "books"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "0"
+                    },
+                    {
+                      "key": "size",
+                      "value": "10"
+                    },
+                    {
+                      "key": "sortBy",
+                      "value": "title"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Search By Existing Book Title",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/v1/books?title={{existingBookTitle}}&page=0&size=10&sortBy=title",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "books"
+                  ],
+                  "query": [
+                    {
+                      "key": "title",
+                      "value": "{{existingBookTitle}}"
+                    },
+                    {
+                      "key": "page",
+                      "value": "0"
+                    },
+                    {
+                      "key": "size",
+                      "value": "10"
+                    },
+                    {
+                      "key": "sortBy",
+                      "value": "title"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Borrowing And Reservations",
+          "item": [
+            {
+              "name": "Create Reservation (uses existingBookId)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{memberToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"{{memberUserId}}\",\n  \"bookId\": \"{{existingBookId}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/reservations",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "reservations"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Create reservation status', function () { pm.expect(pm.response.code).to.be.oneOf([201, 400, 401, 403]); });",
+                      "if (pm.response.code === 201) {",
+                      "  const data = pm.response.json();",
+                      "  if (data.reservationId) pm.environment.set('memberReservationId', data.reservationId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "View Own Reservations",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{memberToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/reservations",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "reservations"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Cancel Latest Reservation",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{memberToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/reservations/{{memberReservationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "reservations",
+                    "{{memberReservationId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Admin Issues Copy To Member (uses existing copy)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"userId\": \"{{memberUserId}}\",\n  \"copyId\": \"{{availableCopyId}}\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/transactions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "transactions"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Issue copy status', function () { pm.expect(pm.response.code).to.be.oneOf([201, 400, 401, 403]); });",
+                      "if (pm.response.code === 201) {",
+                      "  const data = pm.response.json();",
+                      "  if (data.transactionId) pm.environment.set('memberTxId', data.transactionId);",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "View Own Transactions",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{memberToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/transactions",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "transactions"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Return Latest Transaction",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{memberToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"RETURNED\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/transactions/{{memberTxId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "transactions",
+                    "{{memberTxId}}"
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Mark Latest Transaction LOST",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{memberToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"LOST\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/transactions/{{memberTxId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "transactions",
+                    "{{memberTxId}}"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notifications And Fines",
+          "item": [
+            {
+              "name": "View Own Fines",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{memberToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/users?scope=fines",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "users"
+                  ],
+                  "query": [
+                    {
+                      "key": "scope",
+                      "value": "fines"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "View Notifications",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{memberToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/notifications",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "notifications"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test('Notifications status', function () { pm.expect(pm.response.code).to.be.oneOf([200, 401, 403]); });",
+                      "if (pm.response.code === 200) {",
+                      "  const list = pm.response.json();",
+                      "  if (Array.isArray(list) && list.length > 0 && list[0].notificationId) {",
+                      "    pm.environment.set('memberNotificationId', list[0].notificationId);",
+                      "  }",
+                      "}"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Mark First Notification Read",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{memberToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/notifications/{{memberNotificationId}}",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "v1",
+                    "notifications",
+                    "{{memberNotificationId}}"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+import type { Meta, StoryObj } from "@storybook/react"
+import { Textarea } from "./index"
+
+const meta: Meta<typeof Textarea> = {
+  title: "Components/UI/Textarea",
+  component: Textarea
+}
+
+export default meta
+
+type Story = StoryObj<typeof Textarea>
+
+export const Default: Story = {
+  args: {
+    placeholder: "Enter description"
+  }
+}

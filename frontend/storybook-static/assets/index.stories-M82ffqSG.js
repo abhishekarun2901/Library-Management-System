@@ -1,0 +1,7 @@
+import{t as e}from"./jsx-runtime-Ds4jeNO1.js";var t=e();const n=({className:e=``,orientation:n=`horizontal`,...r})=>n===`vertical`?(0,t.jsx)(`span`,{className:`inline-block h-full w-px bg-gray-200 ${e}`.trim(),"aria-hidden":`true`}):(0,t.jsx)(`hr`,{className:`my-4 border-gray-200 ${e}`.trim(),...r});n.__docgenInfo={description:``,methods:[],displayName:`Divider`,props:{orientation:{required:!1,tsType:{name:`union`,raw:`"horizontal" | "vertical"`,elements:[{name:`literal`,value:`"horizontal"`},{name:`literal`,value:`"vertical"`}]},description:``,defaultValue:{value:`"horizontal"`,computed:!1}},className:{defaultValue:{value:`""`,computed:!1},required:!1}}};var r={title:`Components/UI/Divider`,component:n};const i={},a={render:()=>(0,t.jsxs)(`div`,{className:`flex h-12 items-center gap-4`,children:[(0,t.jsx)(`span`,{className:`text-sm text-gray-600`,children:`Left`}),(0,t.jsx)(n,{orientation:`vertical`}),(0,t.jsx)(`span`,{className:`text-sm text-gray-600`,children:`Right`})]})};i.parameters={...i.parameters,docs:{...i.parameters?.docs,source:{originalSource:`{}`,...i.parameters?.docs?.source}}},a.parameters={...a.parameters,docs:{...a.parameters?.docs,source:{originalSource:`{
+  render: () => <div className="flex h-12 items-center gap-4">
+      <span className="text-sm text-gray-600">Left</span>
+      <Divider orientation="vertical" />
+      <span className="text-sm text-gray-600">Right</span>
+    </div>
+}`,...a.parameters?.docs?.source}}};const o=[`Horizontal`,`Vertical`];export{i as Horizontal,a as Vertical,o as __namedExportsOrder,r as default};

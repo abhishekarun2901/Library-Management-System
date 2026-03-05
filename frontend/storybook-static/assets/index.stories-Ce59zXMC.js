@@ -1,0 +1,5 @@
+import{t as e}from"./jsx-runtime-Ds4jeNO1.js";var t=e();const n=({className:e=``,label:n,...r})=>{let i=(0,t.jsx)(`input`,{type:`checkbox`,className:`h-4 w-4 rounded border-gray-300 accent-indigo-600 ${e}`.trim(),...r});return n?(0,t.jsxs)(`label`,{className:`flex items-center gap-2 text-sm text-gray-700`,children:[i,(0,t.jsx)(`span`,{children:n})]}):i};n.__docgenInfo={description:``,methods:[],displayName:`Checkbox`,props:{label:{required:!1,tsType:{name:`ReactNode`},description:``},className:{defaultValue:{value:`""`,computed:!1},required:!1}}};var r={title:`Components/UI/Checkbox`,component:n};const i={args:{label:`Remember me`}};i.parameters={...i.parameters,docs:{...i.parameters?.docs,source:{originalSource:`{
+  args: {
+    label: "Remember me"
+  }
+}`,...i.parameters?.docs?.source}}};const a=[`Default`];export{i as Default,a as __namedExportsOrder,r as default};

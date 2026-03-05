@@ -1,0 +1,6 @@
+import{t as e}from"./jsx-runtime-Ds4jeNO1.js";var t=e(),n={sm:`h-4 w-4 text-sm`,md:`h-5 w-5 text-base`,lg:`h-6 w-6 text-lg`};const r=({children:e,className:r=``,size:i=`md`,...a})=>(0,t.jsx)(`span`,{"aria-hidden":`true`,className:`inline-flex items-center justify-center text-gray-700 ${n[i]} ${r}`.trim(),...a,children:e});r.__docgenInfo={description:``,methods:[],displayName:`Icon`,props:{children:{required:!0,tsType:{name:`ReactNode`},description:``},size:{required:!1,tsType:{name:`union`,raw:`"sm" | "md" | "lg"`,elements:[{name:`literal`,value:`"sm"`},{name:`literal`,value:`"md"`},{name:`literal`,value:`"lg"`}]},description:``,defaultValue:{value:`"md"`,computed:!1}},className:{defaultValue:{value:`""`,computed:!1},required:!1}}};var i={title:`Components/UI/Icon`,component:r};const a={args:{children:`★`,size:`md`}};a.parameters={...a.parameters,docs:{...a.parameters?.docs,source:{originalSource:`{
+  args: {
+    children: "★",
+    size: "md"
+  }
+}`,...a.parameters?.docs?.source}}};const o=[`Default`];export{a as Default,o as __namedExportsOrder,i as default};

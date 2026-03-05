@@ -1,0 +1,5 @@
+import{t as e}from"./jsx-runtime-Ds4jeNO1.js";var t=e();const n=({className:e=``,rows:n=4,...r})=>(0,t.jsx)(`textarea`,{rows:n,className:`w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${e}`.trim(),...r});n.__docgenInfo={description:``,methods:[],displayName:`Textarea`,props:{className:{defaultValue:{value:`""`,computed:!1},required:!1},rows:{defaultValue:{value:`4`,computed:!1},required:!1}}};var r={title:`Components/UI/Textarea`,component:n};const i={args:{placeholder:`Enter description`}};i.parameters={...i.parameters,docs:{...i.parameters?.docs,source:{originalSource:`{
+  args: {
+    placeholder: "Enter description"
+  }
+}`,...i.parameters?.docs?.source}}};const a=[`Default`];export{i as Default,a as __namedExportsOrder,r as default};

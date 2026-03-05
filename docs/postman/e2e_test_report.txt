@@ -1,0 +1,90 @@
+LBMS E2E Verification Report
+Run ID: 1772611610
+Base URL: http://localhost:8000
+Failures: 0
+
+[PASS] Public books endpoint reachable | expected=200 actual=200 | Base API availability
+[PASS] Register admin candidate | expected=201 actual=201 | Bootstrap admin candidate
+[PASS] Register member1 | expected=201 actual=201 | Member account creation
+[PASS] Register member2 | expected=201 actual=201 | Member account creation
+[PASS] Register member3 | expected=201 actual=201 | Member account creation
+[PASS] Admin login | expected=200 actual=200 | Admin JWT
+[PASS] Member1 login | expected=200 actual=200 | Member JWT
+[PASS] Member2 login | expected=200 actual=200 | Member JWT
+[PASS] Member3 login | expected=200 actual=200 | Member JWT
+[PASS] Member scope=me | expected=200 actual=200 | Member profile access
+[PASS] Member self-update profile | expected=200 actual=200 | Member can update own full name
+[PASS] Member self-update reflected | expected=true actual=200 | Member fullName updated
+[PASS] Member cannot change admin-only user flags | expected=true actual=200 | isActive/blacklistReason unchanged for member
+[PASS] Admin get all users | expected=200 actual=200 | User management list
+[PASS] Admin create book | expected=201 actual=201 | Book catalog create
+[PASS] Public ISBN search | expected=200 actual=200 | Catalog ISBN search
+[PASS] Get book copies | expected=200 actual=200 | Copy management list
+[PASS] Member cannot issue own copy | expected=403 actual=403 | Member issue action is forbidden
+[PASS] Admin issue copy1 to member1 | expected=201 actual=201 | Borrowing via admin
+[PASS] Admin issue copy2 to member2 | expected=201 actual=201 | Borrowing via admin
+[PASS] Member3 reserve book | expected=201 actual=201 | Reservation create
+[PASS] Member1 reserve book | expected=201 actual=201 | Reservation queue
+[PASS] Member1 return copy1 | expected=200 actual=200 | Return borrowed book
+[PASS] Admin blocked by FIFO for member2 | expected=!= 201 actual=400 | Queue jumping prevention
+[PASS] Admin issue copy1 to member3 via FIFO | expected=201 actual=201 | Oldest reservation served first
+[PASS] Member2 return copy2 | expected=200 actual=200 | Trigger reservation ready alert
+[PASS] Member1 view notifications | expected=200 actual=200 | Notification retrieval
+[PASS] Reservation ready notification generated | expected=present actual=200 | Member1 received RESERVATION_READY
+[PASS] Member1 mark notification read | expected=200 actual=200 | Notification mark-as-read
+[PASS] Member2 cannot mark member1 notification | expected=!= 200 actual=404 | Notification ownership enforcement
+[PASS] Member1 transactions endpoint | expected=200 actual=200 | Personal transaction history
+[PASS] Member transaction visibility restricted | expected=true actual=200 | Member sees only own transactions
+[PASS] Admin transactions endpoint | expected=200 actual=200 | Admin transaction oversight
+[PASS] Admin issue copy2 to member1 after notification | expected=201 actual=201 | Reservation fulfillment
+[PASS] Prevent delete active copy | expected=!= 204 actual=400 | Copy delete restriction
+[PASS] Prevent delete book with active loan | expected=!= 204 actual=400 | Book delete restriction
+[PASS] Return overdue transaction | expected=200 actual=200 | Overdue return flow
+[PASS] Member1 view own fines | expected=200 actual=200 | Fine visibility
+[PASS] Overdue fine generation (₹2/day) | expected=true actual=200 | Overdue fine found for member1
+[PASS] Member3 return active tx | expected=200 actual=200 | Close active transaction
+[PASS] Admin issue copy1 to member3 again | expected=201 actual=201 | Prepare lost penalty test
+[PASS] Mark transaction LOST | expected=200 actual=200 | Lost book flow
+[PASS] Member3 fines after LOST | expected=200 actual=200 | Fine visibility
+[PASS] Lost book penalty generation (₹50) | expected=true actual=200 | Lost fine found for member3
+[PASS] Soft delete copy (mark LOST) | expected=204 actual=204 | Copy soft delete
+[PASS] Soft delete book | expected=204 actual=204 | Book soft delete
+[PASS] Admin view member1 history | expected=200 actual=200 | Admin user history
+[PASS] Admin view member1 fines | expected=200 actual=200 | Admin user fines
+[PASS] Admin deactivate member2 | expected=200 actual=200 | Activate/deactivate users
+[PASS] Deactivated user login blocked | expected=!= 200 actual=401 | Inactive user cannot authenticate
+[PASS] Admin reports endpoint | expected=200 actual=200 | Analytics endpoint
+[PASS] Reports payload shape | expected=true actual=200 | All expected analytics keys are present
+[PASS] Admin view all fines | expected=200 actual=200 | Fine management list
+[PASS] Member cannot view all fines | expected=403 actual=403 | Fine list restricted to ADMIN
+[PASS] Member cannot create book | expected=403 actual=403 | Strict ADMIN write protection
+[PASS] Member cannot access reports | expected=403 actual=403 | ADMIN-only analytics endpoint
+[PASS] Member cannot list all users | expected=403 actual=403 | ADMIN-only user listing
+[PASS] Register member4 | expected=201 actual=201 | Additional member for extended tests
+[PASS] Member4 login | expected=200 actual=200 | Member JWT
+[PASS] Admin create advanced-search seed book | expected=201 actual=201 | Catalog testing setup
+[PASS] Catalog filter by author+category | expected=200 actual=200 | Advanced catalog filter
+[PASS] Catalog filter result contains seed book | expected=true actual=200 | Author/category filter returned expected book
+[PASS] Catalog pagination+sorting response shape | expected=true actual=200 | Pagination metadata present with requested size
+[PASS] Catalog filter by author+categories | expected=200 actual=200 | Advanced catalog filter (plural categories param)
+[PASS] Catalog filter (categories param) contains seed book | expected=true actual=200 | Author/categories filter returned expected book
+[PASS] Get advanced-search book copies | expected=200 actual=200 | Copy list for seed book
+[PASS] Admin create extra physical copy | expected=201 actual=201 | Copy creation endpoint
+[PASS] Admin update copy status | expected=200 actual=200 | Copy status update endpoint
+[PASS] Member cannot issue seed copy | expected=403 actual=403 | Member issue action is forbidden
+[PASS] Admin issue seed copy to member4 | expected=201 actual=201 | Transaction creation for active-copy test
+[PASS] Enforce one active transaction per copy | expected=!= 201 actual=400 | Second concurrent issue should fail
+[PASS] Return seed copy from member4 | expected=200 actual=200 | Cleanup for active-copy test
+[PASS] Admin create reservation-seed book | expected=201 actual=201 | Reservation testing setup
+[PASS] Get reservation-seed copies | expected=200 actual=200 | Copy list for reservation setup
+[PASS] Admin issue reservation-seed copy to member4 | expected=201 actual=201 | Reserve-only state setup
+[PASS] Member1 reserve reservation-seed book | expected=201 actual=201 | Reservation queue entry #1
+[PASS] Member3 reserve reservation-seed book | expected=201 actual=201 | Reservation queue entry #2
+[PASS] Admin view reservations | expected=200 actual=200 | Reservation oversight listing
+[PASS] Admin update reservation status | expected=200 actual=200 | Reservation status management
+[PASS] Member cancel own reservation | expected=200 actual=200 | Reservation cancellation
+[PASS] Member4 return reservation-seed copy | expected=200 actual=200 | Cleanup reservation setup
+[PASS] Admin update user details | expected=200 actual=200 | Update full name, active flag, blacklist reason
+[PASS] User update reflected in response | expected=true actual=200 | Updated fields returned as expected
+[PASS] Admin soft delete user | expected=204 actual=204 | User soft deletion
+[PASS] Soft-deleted user login blocked | expected=!= 200 actual=401 | Deleted/inactive user cannot authenticate

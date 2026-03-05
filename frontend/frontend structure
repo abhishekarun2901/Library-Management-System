@@ -1,0 +1,96 @@
+frontend
+├── src
+│
+│   ├── components
+│   │
+│   │   ├── ui                    # base design system components
+│   │   │   ├── Button
+│   │   │   ├── Input
+│   │   │   ├── Select
+│   │   │   ├── Textarea
+│   │   │   ├── Checkbox
+│   │   │   ├── Badge
+│   │   │   ├── Avatar
+│   │   │   ├── Icon
+│   │   │   ├── Divider
+│   │   │   ├── Spinner
+│   │   │   └── Card
+│   │
+│   │   ├── forms
+│   │   │   ├── FormField
+│   │   │   ├── FormCard
+│   │   │   └── SearchCard
+│   │
+│   │   ├── data-display
+│   │   │   ├── StatCard
+│   │   │   ├── ListItemCard
+│   │   │   ├── DataTable
+│   │   │   └── Banner
+│   │
+│   │   ├── navigation
+│   │   │   ├── SidebarNavigation
+│   │   │   └── Topbar
+│   │
+│   │   ├── actions
+│   │   │   └── QuickActionTile
+│   │
+│   │   ├── overlay
+│   │   │   └── Modal
+│   │
+│   │   └── layout
+│   │       └── DashboardLayout
+│
+│   ├── pages
+│   │
+│   │   ├── auth
+│   │   │   ├── LoginPage
+│   │   │   └── SignupPage
+│   │   │
+│   │   ├── dashboard
+│   │   │   ├── LibrarianDashboard
+│   │   │   └── MemberDashboard
+│   │   │
+│   │   ├── catalog
+│   │   │   └── CatalogSearchPage
+│   │   │
+│   │   ├── circulation
+│   │   │   ├── IssueBooksPage
+│   │   │   └── ReservationsPage
+│   │   │
+│   │   ├── management
+│   │   │   ├── MemberManagementPage
+│   │   │   └── BookManagementPage
+│   │   │
+│   │   └── finance
+│   │       └── FinesPaymentsPage
+│
+│   ├── hooks
+│   │   ├── useAuth.ts
+│   │   ├── useBooks.ts
+│   │   ├── useMembers.ts
+│   │   └── useReservations.ts
+│
+│   ├── services
+│   │   ├── authService.ts
+│   │   ├── bookService.ts
+│   │   ├── memberService.ts
+│   │   ├── reservationService.ts
+│   │   └── fineService.ts
+│
+│   ├── utils
+│   │   ├── formatDate.ts
+│   │   ├── formatCurrency.ts
+│   │   └── pagination.ts
+│
+│   ├── routes
+│   │   └── AppRouter.tsx
+│
+│   ├── styles
+│   │   ├── globals.css
+│   │   └── theme.css
+│
+│   ├── App.tsx
+│   └── main.tsx
+│
+├── .storybook
+└── vite.config.ts

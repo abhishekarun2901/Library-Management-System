@@ -1,0 +1,603 @@
+{
+  "generatedAt": "2026-03-04T13:36:58+05:30",
+  "runId": "1772611610",
+  "baseUrl": "http://localhost:8000",
+  "failures": 0,
+  "results": [
+    {
+      "name": "Public books endpoint reachable",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Base API availability"
+    },
+    {
+      "name": "Register admin candidate",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Bootstrap admin candidate"
+    },
+    {
+      "name": "Register member1",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Member account creation"
+    },
+    {
+      "name": "Register member2",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Member account creation"
+    },
+    {
+      "name": "Register member3",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Member account creation"
+    },
+    {
+      "name": "Admin login",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Admin JWT"
+    },
+    {
+      "name": "Member1 login",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Member JWT"
+    },
+    {
+      "name": "Member2 login",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Member JWT"
+    },
+    {
+      "name": "Member3 login",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Member JWT"
+    },
+    {
+      "name": "Member scope=me",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Member profile access"
+    },
+    {
+      "name": "Member self-update profile",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Member can update own full name"
+    },
+    {
+      "name": "Member self-update reflected",
+      "expected": "true",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Member fullName updated"
+    },
+    {
+      "name": "Member cannot change admin-only user flags",
+      "expected": "true",
+      "code": "200",
+      "status": "PASS",
+      "detail": "isActive/blacklistReason unchanged for member"
+    },
+    {
+      "name": "Admin get all users",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "User management list"
+    },
+    {
+      "name": "Admin create book",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Book catalog create"
+    },
+    {
+      "name": "Public ISBN search",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Catalog ISBN search"
+    },
+    {
+      "name": "Get book copies",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Copy management list"
+    },
+    {
+      "name": "Member cannot issue own copy",
+      "expected": "403",
+      "code": "403",
+      "status": "PASS",
+      "detail": "Member issue action is forbidden"
+    },
+    {
+      "name": "Admin issue copy1 to member1",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Borrowing via admin"
+    },
+    {
+      "name": "Admin issue copy2 to member2",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Borrowing via admin"
+    },
+    {
+      "name": "Member3 reserve book",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Reservation create"
+    },
+    {
+      "name": "Member1 reserve book",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Reservation queue"
+    },
+    {
+      "name": "Member1 return copy1",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Return borrowed book"
+    },
+    {
+      "name": "Admin blocked by FIFO for member2",
+      "expected": "!= 201",
+      "code": "400",
+      "status": "PASS",
+      "detail": "Queue jumping prevention"
+    },
+    {
+      "name": "Admin issue copy1 to member3 via FIFO",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Oldest reservation served first"
+    },
+    {
+      "name": "Member2 return copy2",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Trigger reservation ready alert"
+    },
+    {
+      "name": "Member1 view notifications",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Notification retrieval"
+    },
+    {
+      "name": "Reservation ready notification generated",
+      "expected": "present",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Member1 received RESERVATION_READY"
+    },
+    {
+      "name": "Member1 mark notification read",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Notification mark-as-read"
+    },
+    {
+      "name": "Member2 cannot mark member1 notification",
+      "expected": "!= 200",
+      "code": "404",
+      "status": "PASS",
+      "detail": "Notification ownership enforcement"
+    },
+    {
+      "name": "Member1 transactions endpoint",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Personal transaction history"
+    },
+    {
+      "name": "Member transaction visibility restricted",
+      "expected": "true",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Member sees only own transactions"
+    },
+    {
+      "name": "Admin transactions endpoint",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Admin transaction oversight"
+    },
+    {
+      "name": "Admin issue copy2 to member1 after notification",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Reservation fulfillment"
+    },
+    {
+      "name": "Prevent delete active copy",
+      "expected": "!= 204",
+      "code": "400",
+      "status": "PASS",
+      "detail": "Copy delete restriction"
+    },
+    {
+      "name": "Prevent delete book with active loan",
+      "expected": "!= 204",
+      "code": "400",
+      "status": "PASS",
+      "detail": "Book delete restriction"
+    },
+    {
+      "name": "Return overdue transaction",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Overdue return flow"
+    },
+    {
+      "name": "Member1 view own fines",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Fine visibility"
+    },
+    {
+      "name": "Overdue fine generation (₹2/day)",
+      "expected": "true",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Overdue fine found for member1"
+    },
+    {
+      "name": "Member3 return active tx",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Close active transaction"
+    },
+    {
+      "name": "Admin issue copy1 to member3 again",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Prepare lost penalty test"
+    },
+    {
+      "name": "Mark transaction LOST",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Lost book flow"
+    },
+    {
+      "name": "Member3 fines after LOST",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Fine visibility"
+    },
+    {
+      "name": "Lost book penalty generation (₹50)",
+      "expected": "true",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Lost fine found for member3"
+    },
+    {
+      "name": "Soft delete copy (mark LOST)",
+      "expected": "204",
+      "code": "204",
+      "status": "PASS",
+      "detail": "Copy soft delete"
+    },
+    {
+      "name": "Soft delete book",
+      "expected": "204",
+      "code": "204",
+      "status": "PASS",
+      "detail": "Book soft delete"
+    },
+    {
+      "name": "Admin view member1 history",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Admin user history"
+    },
+    {
+      "name": "Admin view member1 fines",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Admin user fines"
+    },
+    {
+      "name": "Admin deactivate member2",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Activate/deactivate users"
+    },
+    {
+      "name": "Deactivated user login blocked",
+      "expected": "!= 200",
+      "code": "401",
+      "status": "PASS",
+      "detail": "Inactive user cannot authenticate"
+    },
+    {
+      "name": "Admin reports endpoint",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Analytics endpoint"
+    },
+    {
+      "name": "Reports payload shape",
+      "expected": "true",
+      "code": "200",
+      "status": "PASS",
+      "detail": "All expected analytics keys are present"
+    },
+    {
+      "name": "Admin view all fines",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Fine management list"
+    },
+    {
+      "name": "Member cannot view all fines",
+      "expected": "403",
+      "code": "403",
+      "status": "PASS",
+      "detail": "Fine list restricted to ADMIN"
+    },
+    {
+      "name": "Member cannot create book",
+      "expected": "403",
+      "code": "403",
+      "status": "PASS",
+      "detail": "Strict ADMIN write protection"
+    },
+    {
+      "name": "Member cannot access reports",
+      "expected": "403",
+      "code": "403",
+      "status": "PASS",
+      "detail": "ADMIN-only analytics endpoint"
+    },
+    {
+      "name": "Member cannot list all users",
+      "expected": "403",
+      "code": "403",
+      "status": "PASS",
+      "detail": "ADMIN-only user listing"
+    },
+    {
+      "name": "Register member4",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Additional member for extended tests"
+    },
+    {
+      "name": "Member4 login",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Member JWT"
+    },
+    {
+      "name": "Admin create advanced-search seed book",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Catalog testing setup"
+    },
+    {
+      "name": "Catalog filter by author+category",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Advanced catalog filter"
+    },
+    {
+      "name": "Catalog filter result contains seed book",
+      "expected": "true",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Author/category filter returned expected book"
+    },
+    {
+      "name": "Catalog pagination+sorting response shape",
+      "expected": "true",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Pagination metadata present with requested size"
+    },
+    {
+      "name": "Catalog filter by author+categories",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Advanced catalog filter (plural categories param)"
+    },
+    {
+      "name": "Catalog filter (categories param) contains seed book",
+      "expected": "true",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Author/categories filter returned expected book"
+    },
+    {
+      "name": "Get advanced-search book copies",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Copy list for seed book"
+    },
+    {
+      "name": "Admin create extra physical copy",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Copy creation endpoint"
+    },
+    {
+      "name": "Admin update copy status",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Copy status update endpoint"
+    },
+    {
+      "name": "Member cannot issue seed copy",
+      "expected": "403",
+      "code": "403",
+      "status": "PASS",
+      "detail": "Member issue action is forbidden"
+    },
+    {
+      "name": "Admin issue seed copy to member4",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Transaction creation for active-copy test"
+    },
+    {
+      "name": "Enforce one active transaction per copy",
+      "expected": "!= 201",
+      "code": "400",
+      "status": "PASS",
+      "detail": "Second concurrent issue should fail"
+    },
+    {
+      "name": "Return seed copy from member4",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Cleanup for active-copy test"
+    },
+    {
+      "name": "Admin create reservation-seed book",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Reservation testing setup"
+    },
+    {
+      "name": "Get reservation-seed copies",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Copy list for reservation setup"
+    },
+    {
+      "name": "Admin issue reservation-seed copy to member4",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Reserve-only state setup"
+    },
+    {
+      "name": "Member1 reserve reservation-seed book",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Reservation queue entry #1"
+    },
+    {
+      "name": "Member3 reserve reservation-seed book",
+      "expected": "201",
+      "code": "201",
+      "status": "PASS",
+      "detail": "Reservation queue entry #2"
+    },
+    {
+      "name": "Admin view reservations",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Reservation oversight listing"
+    },
+    {
+      "name": "Admin update reservation status",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Reservation status management"
+    },
+    {
+      "name": "Member cancel own reservation",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Reservation cancellation"
+    },
+    {
+      "name": "Member4 return reservation-seed copy",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Cleanup reservation setup"
+    },
+    {
+      "name": "Admin update user details",
+      "expected": "200",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Update full name, active flag, blacklist reason"
+    },
+    {
+      "name": "User update reflected in response",
+      "expected": "true",
+      "code": "200",
+      "status": "PASS",
+      "detail": "Updated fields returned as expected"
+    },
+    {
+      "name": "Admin soft delete user",
+      "expected": "204",
+      "code": "204",
+      "status": "PASS",
+      "detail": "User soft deletion"
+    },
+    {
+      "name": "Soft-deleted user login blocked",
+      "expected": "!= 200",
+      "code": "401",
+      "status": "PASS",
+      "detail": "Deleted/inactive user cannot authenticate"
+    }
+  ]
+}
