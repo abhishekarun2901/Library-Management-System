@@ -1,6 +1,0 @@
-import{t as e}from"./jsx-runtime-Ds4jeNO1.js";var t=e();const n=({className:e=``,label:n,title:r,value:i,...a})=>{let o=n??r;return(0,t.jsxs)(`div`,{className:`rounded-xl border border-gray-200 bg-white p-4 ${e}`.trim(),...a,children:[(0,t.jsx)(`p`,{className:`text-sm text-gray-600`,children:o}),(0,t.jsx)(`h3`,{className:`mt-1 text-2xl font-semibold text-gray-900`,children:i})]})};n.__docgenInfo={description:``,methods:[],displayName:`StatCard`,props:{label:{required:!1,tsType:{name:`ReactNode`},description:``},title:{required:!1,tsType:{name:`ReactNode`},description:``},value:{required:!0,tsType:{name:`ReactNode`},description:``},className:{defaultValue:{value:`""`,computed:!1},required:!1}}};var r={title:`Components/UI/StatCard`,component:n};const i={args:{label:`Total Books`,value:`1,248`}};i.parameters={...i.parameters,docs:{...i.parameters?.docs,source:{originalSource:`{
-  args: {
-    label: "Total Books",
-    value: "1,248"
-  }
-}`,...i.parameters?.docs?.source}}};const a=[`Default`];export{i as Default,a as __namedExportsOrder,r as default};

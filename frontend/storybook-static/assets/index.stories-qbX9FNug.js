@@ -1,6 +1,0 @@
-import{t as e}from"./jsx-runtime-Ds4jeNO1.js";var t=e();const n=({children:e,className:n=``,...r})=>(0,t.jsx)(`div`,{className:`rounded-xl border border-gray-200 bg-white p-6 shadow-sm ${n}`.trim(),...r,children:e});n.__docgenInfo={description:``,methods:[],displayName:`Card`,props:{children:{required:!0,tsType:{name:`ReactNode`},description:``},className:{defaultValue:{value:`""`,computed:!1},required:!1}}};var r={title:`Components/UI/Card`,component:n};const i={render:()=>(0,t.jsxs)(n,{children:[(0,t.jsx)(`h3`,{className:`text-lg font-semibold text-gray-900`,children:`Book Details`}),(0,t.jsx)(`p`,{className:`mt-2 text-gray-600`,children:`Card container used for dashboard stats, forms, and tables.`})]})};i.parameters={...i.parameters,docs:{...i.parameters?.docs,source:{originalSource:`{
-  render: () => <Card>
-      <h3 className="text-lg font-semibold text-gray-900">Book Details</h3>
-      <p className="mt-2 text-gray-600">Card container used for dashboard stats, forms, and tables.</p>
-    </Card>
-}`,...i.parameters?.docs?.source}}};const a=[`Default`];export{i as Default,a as __namedExportsOrder,r as default};

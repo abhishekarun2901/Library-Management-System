@@ -1,5 +1,0 @@
-import{t as e}from"./jsx-runtime-Ds4jeNO1.js";var t=e(),n={sm:`h-4 w-4 border-2`,md:`h-6 w-6 border-4`,lg:`h-8 w-8 border-4`};const r=({className:e=``,size:r=`md`,...i})=>(0,t.jsx)(`div`,{role:`status`,"aria-label":`Loading`,className:`animate-spin rounded-full border-indigo-600 border-t-transparent ${n[r]} ${e}`.trim(),...i});r.__docgenInfo={description:``,methods:[],displayName:`Spinner`,props:{size:{required:!1,tsType:{name:`union`,raw:`"sm" | "md" | "lg"`,elements:[{name:`literal`,value:`"sm"`},{name:`literal`,value:`"md"`},{name:`literal`,value:`"lg"`}]},description:``,defaultValue:{value:`"md"`,computed:!1}},className:{defaultValue:{value:`""`,computed:!1},required:!1}}};var i={title:`Components/UI/Spinner`,component:r};const a={},o={args:{size:`lg`}};a.parameters={...a.parameters,docs:{...a.parameters?.docs,source:{originalSource:`{}`,...a.parameters?.docs?.source}}},o.parameters={...o.parameters,docs:{...o.parameters?.docs,source:{originalSource:`{
-  args: {
-    size: "lg"
-  }
-}`,...o.parameters?.docs?.source}}};const s=[`Default`,`Large`];export{a as Default,o as Large,s as __namedExportsOrder,i as default};

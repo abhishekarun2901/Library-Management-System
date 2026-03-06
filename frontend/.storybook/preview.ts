@@ -3,6 +3,14 @@ import '../src/index.css'
 
 const preview: Preview = {
   parameters: {
+    layout: 'padded',
+    backgrounds: {
+      default: 'app-gray',
+      values: [
+        { name: 'app-gray', value: '#f3f4f6' },
+        { name: 'white', value: '#ffffff' },
+      ],
+    },
     controls: {
       matchers: {
        color: /(background|color)$/i,
