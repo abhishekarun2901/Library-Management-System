@@ -1,10 +1,13 @@
 package com.library.lbms.service.impl;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -43,7 +46,6 @@ public class ReservationServiceImpl implements ReservationService {
         if (auth == null || auth.getName() == null || "anonymousUser".equals(auth.getName())) {
             throw new BadRequestException("No authenticated user");
         }
-
         return userRepository.findByEmail(auth.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
     }
@@ -56,10 +58,9 @@ public class ReservationServiceImpl implements ReservationService {
         if (status == null || status.isBlank()) {
             throw new BadRequestException("Reservation status is required");
         }
-
         String normalized = status.trim().toLowerCase();
         if (!ALLOWED_RESERVATION_STATUSES.contains(normalized)) {
-            throw new BadRequestException("Invalid reservation status");
+            throw new BadRequestException("Invalid reservation status: must be one of " + ALLOWED_RESERVATION_STATUSES);
         }
         return normalized;
     }
@@ -77,43 +78,67 @@ public class ReservationServiceImpl implements ReservationService {
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // NEW: Check if account is active
         if (!Boolean.TRUE.equals(user.getIsActive())) {
-            throw new BadRequestException("Reservation failed: Your account is currently inactive or restricted.");
+            throw new BadRequestException("Reservation failed: your account is currently inactive or restricted.");
         }
 
         Book book = bookRepository.findById(request.getBookId())
                 .orElseThrow(() -> new ResourceNotFoundException("Book not found"));
 
-        // Enforce backend limit: Max 3 active reservations per user
-        long activeReservationCount = reservationRepository.countByUser_UserIdAndStatus(user.getUserId(), "active");
-        if (activeReservationCount >= 3) {
+        if (!Boolean.TRUE.equals(book.getIsActive())) {
+            throw new BadRequestException("Reservation failed: this book is no longer available in the catalog.");
+        }
+
+        // AC-1: Reservation requires at least one AVAILABLE copy.
+        boolean hasAvailableCopy = book.getCopies().stream()
+                .anyMatch(copy -> copy.getStatus() == CopyStatus.AVAILABLE);
+
+        if (!hasAvailableCopy) {
+            throw new BadRequestException("No available copies for this book. Cannot create reservation.");
+        }
+
+        // Max 3 active reservations per user
+        long activeCount = reservationRepository.countByUser_UserIdAndStatus(user.getUserId(), "active");
+        if (activeCount >= 3) {
             throw new BadRequestException("You have reached the maximum limit of 3 active reservations.");
         }
 
-        // Check for duplicate reservations for the same book
-        if (reservationRepository.existsByUser_UserIdAndBook_BookIdAndStatus(user.getUserId(), book.getBookId(), "active")) {
+        // Prevent duplicate active reservation for the same book
+        if (reservationRepository.existsByUser_UserIdAndBook_BookIdAndStatus(
+                user.getUserId(), book.getBookId(), "active")) {
             throw new BadRequestException("You already have an active reservation for this book.");
         }
 
-        // Check if copy is already available (should issue instead)
-        boolean isCopyAvailable = book.getCopies().stream()
-                .anyMatch(copy -> copy.getStatus() == CopyStatus.AVAILABLE);
+        // AC-2: pickupDate handling.
+        // When pickupDate is provided: reserved_at = pickupDate - 1 day (so the
+        // hold activates just-in-time), expires_at = pickupDate + 1 day (2-day
+        // collection window). When absent: immediate 24-hour reservation.
+        LocalDate pickupDate = request.getPickupDate();
+        LocalDateTime reservedAt;
+        LocalDateTime expiresAt;
 
-        if (isCopyAvailable) {
-            throw new BadRequestException("Copies are currently available. Please issue the book directly.");
+        if (pickupDate != null) {
+            if (pickupDate.isBefore(LocalDate.now().plusDays(1))) {
+                throw new BadRequestException("pickupDate must be at least tomorrow.");
+            }
+            reservedAt = pickupDate.minusDays(1).atStartOfDay();
+            expiresAt  = pickupDate.plusDays(1).atTime(23, 59, 59);
+        } else {
+            reservedAt = LocalDateTime.now();
+            expiresAt  = LocalDate.now().plusDays(1).atStartOfDay();
         }
 
         Reservation reservation = Reservation.builder()
                 .reservationId(UUID.randomUUID())
                 .user(user)
                 .book(book)
-                .reservedAt(LocalDateTime.now())
-                .expiresAt(LocalDateTime.now().plusHours(24)) 
+                .reservedAt(reservedAt)
+                .expiresAt(expiresAt)
                 .status("active")
                 .build();
 
-        return mapToResponse(reservationRepository.save(reservation));
+        Reservation saved = reservationRepository.save(reservation);
+        return mapToResponse(saved);
     }
 
     @Override
@@ -154,16 +179,6 @@ public class ReservationServiceImpl implements ReservationService {
         reservationRepository.save(reservation);
     }
 
-    private ReservationResponse mapToResponse(Reservation reservation) {
-        return ReservationResponse.builder()
-                .reservationId(reservation.getReservationId())
-                .bookTitle(reservation.getBook().getTitle())
-                .reservedAt(reservation.getReservedAt())
-                .expiresAt(reservation.getExpiresAt())
-                .status(reservation.getStatus())
-                .build();
-    }
-
     @Override
     @Transactional
     public ReservationResponse updateReservationStatus(UUID reservationId, String status) {
@@ -180,4 +195,51 @@ public class ReservationServiceImpl implements ReservationService {
 
         return mapToResponse(reservation);
     }
+
+    // ── Mapper ────────────────────────────────────────────────────────────────
+
+    private ReservationResponse mapToResponse(Reservation reservation) {
+        // Compute queue position among active reservations for this book (FIFO)
+        Integer queuePosition = null;
+        if ("active".equals(reservation.getStatus())) {
+            List<Reservation> queue = reservationRepository
+                    .findByBook_BookIdAndStatus(reservation.getBook().getBookId(), "active")
+                    .stream()
+                    .sorted(Comparator.comparing(Reservation::getReservedAt))
+                    .collect(Collectors.toList());
+
+            queuePosition = IntStream.range(0, queue.size())
+                    .filter(i -> queue.get(i).getReservationId().equals(reservation.getReservationId()))
+                    .map(i -> i + 1)
+                    .boxed()
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        // Derive pickupDate from expiresAt when it was a scheduled reservation
+        // (expiresAt is always set to pickupDate + 1 day for scheduled ones)
+        LocalDate pickupDate = null;
+        if (reservation.getExpiresAt() != null) {
+            LocalDate expiryDate = reservation.getExpiresAt().toLocalDate();
+            // Heuristic: if expiresAt - reservedAt > 25 hours it was a scheduled reservation
+            long hoursBetween = java.time.Duration.between(
+                    reservation.getReservedAt(), reservation.getExpiresAt()).toHours();
+            if (hoursBetween > 25) {
+                pickupDate = expiryDate.minusDays(1);
+            }
+        }
+
+        return ReservationResponse.builder()
+                .reservationId(reservation.getReservationId())
+                .userId(reservation.getUser().getUserId())
+                .bookId(reservation.getBook().getBookId())
+                .bookTitle(reservation.getBook().getTitle())
+                .reservedAt(reservation.getReservedAt())
+                .expiresAt(reservation.getExpiresAt())
+                .pickupDate(pickupDate)
+                .status(reservation.getStatus())
+                .queuePosition(queuePosition)
+                .build();
+    }
 }
+

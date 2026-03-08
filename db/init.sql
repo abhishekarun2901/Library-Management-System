@@ -8,7 +8,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
-    CREATE TYPE user_role AS ENUM ('MEMBER', 'ADMIN');
+    CREATE TYPE user_role AS ENUM ('member', 'admin');
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'copy_status') THEN
     CREATE TYPE copy_status AS ENUM ('available', 'issued', 'lost');
@@ -44,9 +44,11 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE TABLE IF NOT EXISTS books (
   book_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   title varchar NOT NULL,
+  isbn varchar UNIQUE,
   description text,
   publish_date date,
   created_at timestamptz NOT NULL DEFAULT now(),
+  is_active boolean NOT NULL DEFAULT true,
   publisher_id uuid REFERENCES publishers(publisher_id) ON DELETE SET NULL
 );
 
@@ -80,31 +82,31 @@ CREATE TABLE IF NOT EXISTS users (
   role user_role NOT NULL DEFAULT 'member',
   blacklist_reason text,
   created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz,
+  last_login_at timestamptz,
   is_active boolean NOT NULL DEFAULT true
 );
 
 -- Transactions (issue/return)
 CREATE TABLE IF NOT EXISTS transactions (
   transaction_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  checkout_date TIMESTAMPTZ NOT NULL DEFAULT now(),
+  copy_id UUID NOT NULL REFERENCES book_copies(copy_id) ON DELETE RESTRICT,
+  user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE RESTRICT,
+  issue_date TIMESTAMPTZ NOT NULL DEFAULT now(),
   due_date TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '14 days'),
   return_date TIMESTAMPTZ,
-  CHECK (return_date IS NULL OR return_date >= checkout_date),
-  fine_amount NUMERIC(10,2) NOT NULL DEFAULT 0.00,
-  status transaction_status NOT NULL DEFAULT 'issued',
-  user_id UUID NOT NULL REFERENCES users(user_id) ON DELETE RESTRICT,
-  copy_id UUID NOT NULL REFERENCES book_copies(copy_id) ON DELETE RESTRICT
+  status transaction_status NOT NULL DEFAULT 'issued'
 );
 
--- Fines: one-to-one with transaction (API expects transaction_id & amount)
--- Use transaction_id as PK to reflect that fines are generated for transactions
+-- Fines: one-to-one with transaction
 CREATE TABLE IF NOT EXISTS fines (
-  transaction_id uuid PRIMARY KEY REFERENCES transactions(transaction_id) ON DELETE CASCADE,
+  fine_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  transaction_id uuid NOT NULL UNIQUE REFERENCES transactions(transaction_id) ON DELETE CASCADE,
+  user_id uuid REFERENCES users(user_id) ON DELETE SET NULL,
   amount numeric(10,2) NOT NULL DEFAULT 0.00,
   reason text,
   issued_at timestamptz NOT NULL DEFAULT now(),
-  paid boolean NOT NULL DEFAULT false,
-  user_id uuid REFERENCES users(user_id) ON DELETE SET NULL
+  paid boolean NOT NULL DEFAULT false
 );
 
 -- Reservations

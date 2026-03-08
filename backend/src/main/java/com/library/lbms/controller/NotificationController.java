@@ -69,4 +69,12 @@ public class NotificationController {
         notificationRepository.save(notification);
         return ResponseEntity.ok().build();
     }
+
+    // POST /v1/notifications/{id}/mark-read — preferred endpoint for marking as read
+    @org.springframework.web.bind.annotation.PostMapping("/{notification_id}/mark-read")
+    public ResponseEntity<Void> markAsRead(
+            @PathVariable("notification_id") UUID notification_id,
+            Authentication authentication) {
+        return updateNotificationStatus(notification_id, authentication);
+    }
 }

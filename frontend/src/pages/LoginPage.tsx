@@ -1,37 +1,31 @@
-import { useState } from "react"
-import { Link, useNavigate } from "react-router-dom"
-import { BookOpen, CheckCircle2 } from "lucide-react"
-import { Button, Checkbox, Input } from "../components/ui"
-import { FormField } from "../components/composite"
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import { BookOpen, CheckCircle2, Eye, EyeOff } from 'lucide-react'
+import { Button, Checkbox, Input } from '../components/ui'
+import { FormField } from '../components/composite'
+import { useLogin } from '../hooks/useLogin'
 
 const features = [
-  "Manage books, loans, and reservations",
-  "Track overdue fines automatically",
-  "Real-time member activity dashboard",
+  'Manage books, loans, and reservations',
+  'Track overdue fines automatically',
+  'Real-time member activity dashboard',
 ]
 
 export const LoginPage = () => {
-  const navigate = useNavigate()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
-
-  const handleSignIn = () => {
-    if (!email || !password) {
-      setError("Please enter both email and password.")
-      return
-    }
-    if (email === "admin@booking.com" && password === "admin123") {
-      navigate("/librarian")
-    } else if (email === "member@booking.com" && password === "member123") {
-      navigate("/member")
-    } else {
-      setError("Invalid email or password.")
-    }
-  }
+  const {
+    email,
+    setEmail,
+    password,
+    setPassword,
+    error,
+    setError,
+    loading,
+    handleSignIn,
+  } = useLogin()
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSignIn()
+    if (e.key === 'Enter') handleSignIn()
   }
 
   return (
@@ -48,16 +42,21 @@ export const LoginPage = () => {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 ring-1 ring-white/30 backdrop-blur-sm">
             <BookOpen className="h-5 w-5 text-white" />
           </div>
-          <span className="text-xl font-bold tracking-tight text-white">BooKing</span>
+          <span className="text-xl font-bold tracking-tight text-white">
+            BooKing
+          </span>
         </div>
 
         {/* Center content */}
         <div className="relative space-y-6">
           <h2 className="text-4xl font-bold leading-tight text-white">
-            Your digital library,<br />managed beautifully.
+            Your digital library,
+            <br />
+            managed beautifully.
           </h2>
           <p className="text-lg leading-relaxed text-indigo-200">
-            Everything a modern library needs — books, members, loans, and fines — in one elegant platform.
+            Everything a modern library needs — books, members, loans, and fines
+            — in one elegant platform.
           </p>
           <ul className="space-y-3">
             {features.map((f) => (
@@ -70,7 +69,9 @@ export const LoginPage = () => {
         </div>
 
         {/* Footer */}
-        <p className="relative text-sm text-indigo-400">© 2026 BooKing. All rights reserved.</p>
+        <p className="relative text-sm text-indigo-400">
+          © 2026 BooKing. All rights reserved.
+        </p>
       </div>
 
       {/* Right form panel */}
@@ -86,8 +87,12 @@ export const LoginPage = () => {
         <div className="w-full max-w-sm">
           {/* Heading */}
           <div className="mb-8">
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Welcome back</h1>
-            <p className="mt-2 text-sm text-gray-600">Sign in to your library account</p>
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+              Welcome back
+            </h1>
+            <p className="mt-2 text-sm text-gray-600">
+              Sign in to your library account
+            </p>
           </div>
 
           {/* Error */}
@@ -105,36 +110,68 @@ export const LoginPage = () => {
                 type="email"
                 placeholder="name@booking.com"
                 value={email}
-                onChange={(e) => { setEmail(e.target.value); setError("") }}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  setError('')
+                }}
               />
             </FormField>
 
             <FormField label="Password" htmlFor="password" required>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setError("") }}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    setError('')
+                  }}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </FormField>
 
             <div className="flex items-center justify-between gap-3">
               <Checkbox label="Remember me" />
-              <a href="#" className="text-sm font-medium text-indigo-600 hover:text-indigo-700">
+              <a
+                href="#"
+                className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
+              >
                 Forgot password?
               </a>
             </div>
 
-            <Button className="w-full" onClick={handleSignIn}>
-              Sign In
+            <Button
+              className="w-full"
+              onClick={handleSignIn}
+              disabled={loading}
+            >
+              {loading ? 'Signing in…' : 'Sign In'}
             </Button>
           </div>
 
           {/* Sign up link */}
           <p className="mt-6 text-center text-sm text-gray-600">
-            Don't have an account?{" "}
-            <Link to="/signup" className="font-medium text-indigo-600 hover:text-indigo-700">
+            Don't have an account?{' '}
+            <Link
+              to="/signup"
+              className="font-medium text-indigo-600 hover:text-indigo-700"
+            >
               Create one
             </Link>
           </p>

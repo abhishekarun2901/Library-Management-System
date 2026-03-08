@@ -6,7 +6,7 @@ export const HomePage = () => {
 
       {/* ── Nav ─────────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-gray-100 bg-white/95 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-6">
+        <div className="flex h-16 w-full items-center justify-between px-8">
           {/* Logo */}
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600">
@@ -93,38 +93,6 @@ export const HomePage = () => {
         </div>
       </main>
 
-      {/* ── Footer ──────────────────────────────────────────────────────── */}
-      <footer className="border-t border-gray-100 bg-white py-6">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-3 px-6 sm:grid-cols-3">
-          {/* Logo — left */}
-          <div className="flex items-center justify-center gap-2 sm:justify-start">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-600">
-              <svg className="h-3 w-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-              </svg>
-            </div>
-            <span className="text-base font-bold text-gray-900">
-              Boo<span className="text-indigo-600">King</span>
-            </span>
-          </div>
-
-          {/* Copyright — center */}
-          <p className="text-center text-sm text-gray-400">
-            © {new Date().getFullYear()} BooKing. All rights reserved.
-          </p>
-
-          {/* Links — right */}
-          <div className="flex items-center justify-center gap-5 sm:justify-end">
-            <Link to="/login" className="text-sm text-gray-500 transition-colors hover:text-gray-900">
-              Sign In
-            </Link>
-            <Link to="/signup" className="text-sm text-gray-500 transition-colors hover:text-gray-900">
-              Sign Up
-            </Link>
-          </div>
-        </div>
-      </footer>
 
     </div>
   )

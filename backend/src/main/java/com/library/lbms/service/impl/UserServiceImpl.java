@@ -231,6 +231,20 @@ public class UserServiceImpl implements UserService {
         });
     }
 
+    @Override
+    public String getFullNameByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .map(User::getFullName)
+                .orElse(null);
+    }
+
+    @Override
+    public java.time.LocalDateTime getCreatedAtByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .map(User::getCreatedAt)
+                .orElse(null);
+    }
+
     // MAPPERS
     private UserResponse mapToResponse(User user) {
         return UserResponse.builder()
@@ -245,11 +259,15 @@ public class UserServiceImpl implements UserService {
     }
 
     private TransactionResponse mapToTransactionResponse(Transaction t) {
+        String title = null;
+        try { title = t.getCopy().getBook().getTitle(); } catch (Exception ignored) {}
         return TransactionResponse.builder()
                 .transactionId(t.getTransactionId())
                 .user_id(t.getUser().getUserId())
                 .copy_id(t.getCopy().getCopyId())
+                .bookTitle(title)
                 .checkout_date(t.getIssueDate())
+                .due_date(t.getDueDate())
                 .return_date(t.getReturnDate())
                 .status(t.getStatus().name())
                 .build();

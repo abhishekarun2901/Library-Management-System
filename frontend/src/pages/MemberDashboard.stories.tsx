@@ -1,13 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react"
 import { MemoryRouter } from "react-router-dom"
 import { MemberDashboard } from "./MemberDashboard"
-import { Default as SidebarStory } from "../components/navigation/Sidebar.stories"
 
 const meta: Meta<typeof MemberDashboard> = {
   title: "Pages/MemberDashboard",
   component: MemberDashboard,
   decorators: [
-    ...(SidebarStory.decorators ?? []),
     (Story) => <MemoryRouter initialEntries={["/member"]}><Story /></MemoryRouter>,
   ],
   parameters: { layout: "fullscreen" },

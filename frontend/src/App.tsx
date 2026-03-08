@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import {
   HomePage,
   LoginPage,
@@ -6,35 +6,50 @@ import {
   MemberDashboard,
   LibrarianDashboard,
   BookCatalog,
-  IssueBook,
   MemberManagement,
   BookManagement,
   ReservationsPage,
   FinesPaymentsPage,
   MyActivityPage,
-} from "./pages"
+  ProfilePage,
+  ReportsPage,
+  LibrarianProfilePage,
+} from './pages'
+import { ProtectedRoute } from './components/router/ProtectedRoute'
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public routes */}
         <Route path="/" element={<HomePage />} />
         <Route path="/signup" element={<SignUpPage />} />
         <Route path="/login" element={<LoginPage />} />
 
-        {/* Member routes */}
-        <Route path="/member" element={<MemberDashboard />} />
-        <Route path="/member/catalog" element={<BookCatalog />} />
-        <Route path="/member/activity" element={<MyActivityPage />} />
+        {/* Member-only routes */}
+        <Route element={<ProtectedRoute allowedRole="member" />}>
+          <Route path="/member" element={<MemberDashboard />} />
+          <Route path="/member/catalog" element={<BookCatalog />} />
+          <Route path="/member/activity" element={<MyActivityPage />} />
+          <Route path="/member/profile" element={<ProfilePage />} />
+        </Route>
 
-        {/* Librarian routes */}
-        <Route path="/librarian" element={<LibrarianDashboard />} />
-        <Route path="/librarian/catalog" element={<BookCatalog role="librarian" />} />
-        <Route path="/librarian/issue" element={<IssueBook />} />
-        <Route path="/librarian/reservations" element={<ReservationsPage role="librarian" />} />
-        <Route path="/librarian/members" element={<MemberManagement />} />
-        <Route path="/librarian/books" element={<BookManagement />} />
-        <Route path="/librarian/fines" element={<FinesPaymentsPage role="librarian" />} />
+        {/* Admin (librarian) routes */}
+        <Route element={<ProtectedRoute allowedRole="admin" />}>
+          <Route path="/librarian" element={<LibrarianDashboard />} />
+          <Route
+            path="/librarian/reservations"
+            element={<ReservationsPage role="librarian" />}
+          />
+          <Route path="/librarian/members" element={<MemberManagement />} />
+          <Route path="/librarian/books" element={<BookManagement />} />
+          <Route
+            path="/librarian/fines"
+            element={<FinesPaymentsPage role="librarian" />}
+          />
+          <Route path="/librarian/reports" element={<ReportsPage />} />
+          <Route path="/librarian/profile" element={<LibrarianProfilePage />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   )

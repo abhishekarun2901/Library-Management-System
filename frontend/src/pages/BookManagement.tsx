@@ -1,147 +1,502 @@
-import { useState } from "react"
-import { Link } from "react-router-dom"
-import { Badge, Button, Input, Select, Textarea } from "../components/ui"
-import { AppLayout, PageHeader } from "../components/layout"
-import { FormField, SearchCard, ListItemCard, Banner } from "../components/composite"
-import { Modal } from "../components/overlay"
-import { librarianSidebarItems as sidebarItems } from "../config/sidebarConfig"
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useAuthStore } from '../store/authStore'
+import { Badge, Button, Input, Select, Textarea } from '../components/ui'
+import { AppLayout, PageHeader } from '../components/layout'
+import {
+  FormField,
+  SearchCard,
+  ListItemCard,
+  Banner,
+} from '../components/composite'
+import { Modal } from '../components/overlay'
+import { librarianSidebarItems as sidebarItems } from '../config/sidebarConfig'
+import {
+  getBooks,
+  createBook,
+  updateBook,
+  deleteBook,
+  getCopies,
+  createCopy,
+  updateCopyStatus,
+  type BookResponse,
+  type CopyResponse,
+} from '../services/bookService'
+import { getUsers, type UserResponse } from '../services/userService'
+import {
+  issueBook,
+  returnBook,
+  getTransactions,
+  type TransactionResponse,
+} from '../services/transactionService'
 
-type Book = {
-  id: string
-  title: string
-  author: string
-  isbn: string
-  genre: string
-  status: "available" | "issued" | "reserved"
-  totalCopies: number
-  availableCopies: number
-  publishedYear: number
-  publisher: string
-}
-
-const initialBooks: Book[] = [
-  { id: "B001", title: "Clean Code", author: "Robert C. Martin", isbn: "978-0132350884", genre: "Software Engineering", status: "available", totalCopies: 5, availableCopies: 3, publishedYear: 2008, publisher: "Prentice Hall" },
-  { id: "B002", title: "Design Patterns", author: "Erich Gamma et al.", isbn: "978-0201633610", genre: "Software Engineering", status: "issued", totalCopies: 3, availableCopies: 0, publishedYear: 1994, publisher: "Addison-Wesley" },
-  { id: "B003", title: "The Pragmatic Programmer", author: "David Thomas & Andrew Hunt", isbn: "978-0135957059", genre: "Software Engineering", status: "available", totalCopies: 4, availableCopies: 2, publishedYear: 2019, publisher: "Addison-Wesley" },
-  { id: "B004", title: "The Great Gatsby", author: "F. Scott Fitzgerald", isbn: "978-0743273565", genre: "Fiction", status: "available", totalCopies: 6, availableCopies: 5, publishedYear: 1925, publisher: "Scribner" },
-  { id: "B005", title: "To Kill a Mockingbird", author: "Harper Lee", isbn: "978-0061120084", genre: "Fiction", status: "issued", totalCopies: 4, availableCopies: 1, publishedYear: 1960, publisher: "J.B. Lippincott & Co." },
-  { id: "B006", title: "1984", author: "George Orwell", isbn: "978-0451524935", genre: "Fiction", status: "available", totalCopies: 7, availableCopies: 6, publishedYear: 1949, publisher: "Secker & Warburg" },
-  { id: "B007", title: "Introduction to Algorithms", author: "Thomas H. Cormen et al.", isbn: "978-0262033848", genre: "Computer Science", status: "reserved", totalCopies: 3, availableCopies: 1, publishedYear: 2009, publisher: "MIT Press" },
-  { id: "B008", title: "A Brief History of Time", author: "Stephen Hawking", isbn: "978-0553380163", genre: "Science", status: "available", totalCopies: 2, availableCopies: 2, publishedYear: 1988, publisher: "Bantam Books" },
-]
-
-const statusBadgeVariant: Record<string, "available" | "issued" | "reserved"> = {
-  available: "available",
-  issued: "issued",
-  reserved: "reserved",
-}
+type Tab = 'manage' | 'issue'
 
 const emptyForm = {
-  title: "",
-  author: "",
-  isbn: "",
-  genre: "",
-  publisher: "",
-  publishedYear: "",
-  totalCopies: "1",
-  description: "",
+  title: '',
+  author: '',
+  category: '',
+  publisherName: '',
+  publishDate: '',
+  description: '',
 }
 
-export const BookManagement = () => {
-  const [books, setBooks] = useState<Book[]>(initialBooks)
-  const [search, setSearch] = useState("")
-  const [filterStatus, setFilterStatus] = useState("")
-  const [filterGenre, setFilterGenre] = useState("")
+const ITEMS_PER_PAGE = 6
 
-  // Modal state
-  const [isAddOpen, setIsAddOpen] = useState(false)
-  const [isEditOpen, setIsEditOpen] = useState(false)
-  const [editingBook, setEditingBook] = useState<Book | null>(null)
-  const [form, setForm] = useState(emptyForm)
+const XIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5"
+    viewBox="0 0 20 20"
+    fill="currentColor"
+  >
+    <path
+      fillRule="evenodd"
+      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+      clipRule="evenodd"
+    />
+  </svg>
+)
+
+type PaginationProps = {
+  currentPage: number
+  totalPages: number
+  onChange: (p: number) => void
+}
+const Pagination = ({ currentPage, totalPages, onChange }: PaginationProps) => {
+  const pages: (number | 'ellipsis')[] = []
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (currentPage > 4) pages.push('ellipsis')
+    const s = Math.max(2, currentPage - 2),
+      e = Math.min(totalPages - 1, currentPage + 2)
+    for (let i = s; i <= e; i++) pages.push(i)
+    if (currentPage < totalPages - 3) pages.push('ellipsis')
+    pages.push(totalPages)
+  }
+  return (
+    <div className="flex items-center justify-end gap-1 border-t border-gray-200 pt-4">
+      <div className="flex items-center gap-1">
+        <Button
+          variant="secondary"
+          className="px-3 py-1.5 text-xs"
+          disabled={currentPage === 1}
+          onClick={() => onChange(currentPage - 1)}
+        >
+          ← Previous
+        </Button>
+        {pages.map((p, idx) =>
+          p === 'ellipsis' ? (
+            <span key={`e${idx}`} className="px-2 text-sm text-gray-400">
+              …
+            </span>
+          ) : (
+            <button
+              key={p}
+              onClick={() => onChange(p as number)}
+              className={`min-w-[2rem] rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${currentPage === p ? 'border-indigo-600 bg-indigo-600 text-white' : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'}`}
+            >
+              {p}
+            </button>
+          )
+        )}
+        <Button
+          variant="secondary"
+          className="px-3 py-1.5 text-xs"
+          disabled={currentPage === totalPages}
+          onClick={() => onChange(currentPage + 1)}
+        >
+          Next →
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+const fmtDate = (d: string | null | undefined) =>
+  d
+    ? new Date(d).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      })
+    : '—'
+
+export const BookManagement = () => {
+  const { token } = useAuthStore()
+  const [activeTab, setActiveTab] = useState<Tab>('manage')
   const [showSuccess, setShowSuccess] = useState<string | null>(null)
 
-  const genres = [...new Set(books.map((b) => b.genre))].sort()
+  // Manage tab state
+  const [books, setBooks] = useState<BookResponse[]>([])
+  const [totalElements, setTotalElements] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [manPage, setManPage] = useState(0)
+  const [manSearch, setManSearch] = useState('')
+  const [manFilterGenre, setManFilterGenre] = useState('')
+  const [manLoading, setManLoading] = useState(true)
+  const [isAddOpen, setIsAddOpen] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [editingBook, setEditingBook] = useState<BookResponse | null>(null)
+  const [form, setForm] = useState(emptyForm)
+  const [saving, setSaving] = useState(false)
 
-  const filteredBooks = books.filter((b) => {
-    const matchesSearch =
-      search.length < 2 ||
-      b.title.toLowerCase().includes(search.toLowerCase()) ||
-      b.author.toLowerCase().includes(search.toLowerCase()) ||
-      b.isbn.toLowerCase().includes(search.toLowerCase()) ||
-      b.id.toLowerCase().includes(search.toLowerCase())
-    const matchesStatus = !filterStatus || b.status === filterStatus
-    const matchesGenre = !filterGenre || b.genre === filterGenre
-    return matchesSearch && matchesStatus && matchesGenre
-  })
+  // Delete book state
+  const [deleteTarget, setDeleteTarget] = useState<BookResponse | null>(null)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
-  const handleAdd = () => {
-    const newBook: Book = {
-      id: `B${String(books.length + 1).padStart(3, "0")}`,
-      title: form.title,
-      author: form.author,
-      isbn: form.isbn,
-      genre: form.genre,
-      publisher: form.publisher,
-      publishedYear: parseInt(form.publishedYear) || new Date().getFullYear(),
-      totalCopies: parseInt(form.totalCopies) || 1,
-      availableCopies: parseInt(form.totalCopies) || 1,
-      status: "available",
-    }
-    setBooks([newBook, ...books])
-    setForm(emptyForm)
-    setIsAddOpen(false)
-    setShowSuccess(`Book "${newBook.title}" added successfully.`)
-  }
+  // Copy management state
+  const [copiesBook, setCopiesBook] = useState<BookResponse | null>(null)
+  const [isCopiesOpen, setIsCopiesOpen] = useState(false)
+  const [managedCopies, setManagedCopies] = useState<CopyResponse[]>([])
+  const [copiesManageLoading, setCopiesManageLoading] = useState(false)
+  const [addingCopy, setAddingCopy] = useState(false)
 
-  const handleEdit = () => {
-    if (!editingBook) return
-    setBooks(
-      books.map((b) =>
-        b.id === editingBook.id
-          ? {
-              ...b,
-              title: form.title,
-              author: form.author,
-              isbn: form.isbn,
-              genre: form.genre,
-              publisher: form.publisher,
-              publishedYear: parseInt(form.publishedYear) || b.publishedYear,
-              totalCopies: parseInt(form.totalCopies) || b.totalCopies,
-            }
-          : b
-      )
+  // Return book state
+  const [returningId, setReturningId] = useState<string | null>(null)
+
+  // Issue tab state
+  const [memberSearch, setMemberSearch] = useState('')
+  const [memberResults, setMemberResults] = useState<UserResponse[]>([])
+  const [memberSearchLoading, setMemberSearchLoading] = useState(false)
+  const [selectedMember, setSelectedMember] = useState<UserResponse | null>(
+    null
+  )
+  const [issueBookSearch, setIssueBookSearch] = useState('')
+  const [issueBookResults, setIssueBookResults] = useState<BookResponse[]>([])
+  const [issueBookLoading, setIssueBookLoading] = useState(false)
+  const [selectedBook, setSelectedBook] = useState<BookResponse | null>(null)
+  const [selectedCopy, setSelectedCopy] = useState<CopyResponse | null>(null)
+  const [copies, setCopies] = useState<CopyResponse[]>([])
+  const [copiesLoading, setCopiesLoading] = useState(false)
+  const [issuing, setIssuing] = useState(false)
+  const [showIssueSuccess, setShowIssueSuccess] = useState(false)
+  const [recentTx, setRecentTx] = useState<TransactionResponse[]>([])
+
+  // Load books
+  const loadBooks = (
+    page: number,
+    search = manSearch,
+    genre = manFilterGenre
+  ) => {
+    if (!token) return
+    setManLoading(true)
+    getBooks(
+      { page, size: ITEMS_PER_PAGE, title: search, category: genre },
+      token
     )
-    setForm(emptyForm)
-    setEditingBook(null)
-    setIsEditOpen(false)
-    setShowSuccess(`Book "${form.title}" updated successfully.`)
+      .then((data) => {
+        setBooks(data.content)
+        setTotalElements(data.totalElements)
+        setTotalPages(Math.max(1, data.totalPages))
+      })
+      .catch(console.error)
+      .finally(() => setManLoading(false))
   }
 
-  const openEdit = (book: Book) => {
+  useEffect(() => {
+    loadBooks(0)
+  }, [token])
+
+  useEffect(() => {
+    if (!token) return
+    getTransactions(token)
+      .then((txs) =>
+        setRecentTx(
+          [...txs]
+            .sort((a, b) =>
+              (b.checkout_date ?? '').localeCompare(a.checkout_date ?? '')
+            )
+            .slice(0, 5)
+        )
+      )
+      .catch(console.error)
+  }, [token])
+
+  const handlePageChange = (p: number) => {
+    const page = p - 1
+    setManPage(page)
+    loadBooks(page)
+  }
+
+  const handleSearch = () => {
+    setManPage(0)
+    loadBooks(0, manSearch, manFilterGenre)
+  }
+
+  const handleClearSearch = () => {
+    setManSearch('')
+    setManFilterGenre('')
+    setManPage(0)
+    loadBooks(0, '', '')
+  }
+
+  const handleAdd = async () => {
+    if (!token) return
+    setSaving(true)
+    try {
+      await createBook(
+        {
+          title: form.title,
+          authorNames: form.author ? [form.author] : undefined,
+          categories: form.category ? [form.category] : undefined,
+          publisherName: form.publisherName || undefined,
+          publishDate: form.publishDate || undefined,
+          description: form.description || undefined,
+        },
+        token
+      )
+      setShowSuccess(`"${form.title}" has been added to the catalog.`)
+      setForm(emptyForm)
+      setIsAddOpen(false)
+      loadBooks(0)
+    } catch {
+      setShowSuccess('Failed to add book.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleEdit = async () => {
+    if (!token || !editingBook) return
+    setSaving(true)
+    try {
+      await updateBook(
+        editingBook.bookId,
+        {
+          title: form.title,
+          authorNames: form.author ? [form.author] : undefined,
+          categories: form.category ? [form.category] : undefined,
+          publisherName: form.publisherName || undefined,
+        },
+        token
+      )
+      setShowSuccess(`"${form.title}" has been updated.`)
+      setForm(emptyForm)
+      setEditingBook(null)
+      setIsEditOpen(false)
+      loadBooks(manPage)
+    } catch {
+      setShowSuccess('Failed to update book.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const openEdit = (book: BookResponse) => {
     setEditingBook(book)
     setForm({
       title: book.title,
-      author: book.author,
-      isbn: book.isbn,
-      genre: book.genre,
-      publisher: book.publisher,
-      publishedYear: String(book.publishedYear),
-      totalCopies: String(book.totalCopies),
-      description: "",
+      author: book.authors?.[0] ?? '',
+      category: book.categories?.[0] ?? '',
+      publisherName: book.publisher ?? '',
+      publishDate: book.publishDate ?? '',
+      description: book.description ?? '',
     })
     setIsEditOpen(true)
   }
 
-  const openAdd = () => {
-    setForm(emptyForm)
-    setIsAddOpen(true)
+  const openDeleteBook = (book: BookResponse) => {
+    setDeleteTarget(book)
+    setIsDeleteOpen(true)
+  }
+
+  const handleDeleteBook = async () => {
+    if (!token || !deleteTarget) return
+    setDeleting(true)
+    try {
+      await deleteBook(deleteTarget.bookId, token)
+      setShowSuccess(`"${deleteTarget.title}" has been deleted.`)
+      setIsDeleteOpen(false)
+      setDeleteTarget(null)
+      loadBooks(manPage)
+    } catch {
+      setShowSuccess('Failed to delete book.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const openCopies = async (book: BookResponse) => {
+    setCopiesBook(book)
+    setIsCopiesOpen(true)
+    setCopiesManageLoading(true)
+    try {
+      const c = await getCopies(book.bookId, token!)
+      setManagedCopies(c)
+    } catch {
+      setManagedCopies([])
+    } finally {
+      setCopiesManageLoading(false)
+    }
+  }
+
+  const handleAddCopy = async () => {
+    if (!token || !copiesBook) return
+    setAddingCopy(true)
+    try {
+      const c = await createCopy(copiesBook.bookId, token)
+      setManagedCopies((prev) => [...prev, c])
+    } catch {
+      setShowSuccess('Failed to add copy.')
+    } finally {
+      setAddingCopy(false)
+    }
+  }
+
+  const handleMarkCopyLost = async (copy: CopyResponse) => {
+    if (!token) return
+    try {
+      const updated = await updateCopyStatus(copy.copyId, 'LOST', token)
+      setManagedCopies((prev) =>
+        prev.map((c) => (c.copyId === copy.copyId ? updated : c))
+      )
+    } catch {
+      setShowSuccess('Failed to update copy status.')
+    }
+  }
+
+  const handleReturnBook = async (tx: TransactionResponse) => {
+    if (!token || returningId) return
+    setReturningId(tx.transactionId)
+    try {
+      await returnBook(tx.transactionId, token)
+      setRecentTx((prev) =>
+        prev.map((t) =>
+          t.transactionId === tx.transactionId
+            ? { ...t, status: 'returned' }
+            : t
+        )
+      )
+      setShowSuccess('Book returned successfully.')
+    } catch (e: unknown) {
+      setShowSuccess(e instanceof Error ? e.message : 'Failed to return book.')
+    } finally {
+      setReturningId(null)
+    }
+  }
+
+  // Member search for issue tab (debounced via button)
+  const handleMemberSearch = async () => {
+    if (!token || memberSearch.length < 2) return
+    setMemberSearchLoading(true)
+    try {
+      const data = await getUsers({ page: 0, size: 10 }, token)
+      setMemberResults(
+        data.content.filter(
+          (u) =>
+            u.fullName.toLowerCase().includes(memberSearch.toLowerCase()) ||
+            u.email.toLowerCase().includes(memberSearch.toLowerCase())
+        )
+      )
+    } catch {
+      setMemberResults([])
+    } finally {
+      setMemberSearchLoading(false)
+    }
+  }
+
+  // Book search for issue tab
+  const handleIssueBookSearch = async () => {
+    if (!token || issueBookSearch.length < 2) return
+    setIssueBookLoading(true)
+    try {
+      const data = await getBooks({ title: issueBookSearch, size: 10 }, token)
+      setIssueBookResults(data.content)
+    } catch {
+      setIssueBookResults([])
+    } finally {
+      setIssueBookLoading(false)
+    }
+  }
+
+  // Load copies when book selected
+  const handleSelectBook = async (book: BookResponse) => {
+    setSelectedBook(book)
+    setIssueBookSearch(book.title)
+    setIssueBookResults([])
+    setSelectedCopy(null)
+    if (!token) return
+    setCopiesLoading(true)
+    try {
+      const c = await getCopies(book.bookId, token)
+      const available = c.filter((copy) => copy.status === 'AVAILABLE')
+      setCopies(available)
+      if (available.length > 0) setSelectedCopy(available[0])
+    } catch {
+      setCopies([])
+    } finally {
+      setCopiesLoading(false)
+    }
+  }
+
+  const handleIssue = async () => {
+    if (!selectedMember || !selectedCopy || !token) return
+    setIssuing(true)
+    try {
+      await issueBook(
+        { userId: selectedMember.userId, copyId: selectedCopy.copyId },
+        token
+      )
+      setShowIssueSuccess(true)
+      setSelectedMember(null)
+      setSelectedBook(null)
+      setSelectedCopy(null)
+      setCopies([])
+      setMemberSearch('')
+      setIssueBookSearch('')
+      // Refresh recent transactions
+      getTransactions(token)
+        .then((txs) =>
+          setRecentTx(
+            [...txs]
+              .sort((a, b) =>
+                (b.checkout_date ?? '').localeCompare(a.checkout_date ?? '')
+              )
+              .slice(0, 5)
+          )
+        )
+        .catch(console.error)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to issue book.'
+      setShowSuccess(msg)
+    } finally {
+      setIssuing(false)
+    }
+  }
+
+  const clearIssueForm = () => {
+    setSelectedMember(null)
+    setSelectedBook(null)
+    setSelectedCopy(null)
+    setCopies([])
+    setMemberSearch('')
+    setIssueBookSearch('')
+    setMemberResults([])
+    setIssueBookResults([])
+    setShowIssueSuccess(false)
   }
 
   const isFormValid =
-    form.title.trim() !== "" &&
-    form.author.trim() !== "" &&
-    form.isbn.trim() !== "" &&
-    form.genre.trim() !== ""
+    form.title.trim() !== '' &&
+    form.author.trim() !== '' &&
+    form.category.trim() !== ''
+  const canIssue = selectedMember !== null && selectedCopy !== null && !issuing
+
+  const genreOptions = [
+    'Fiction',
+    'Science',
+    'Computer Science',
+    'Software Engineering',
+    'History',
+    'Philosophy',
+    'Biography',
+    'Technology',
+    'Other',
+  ].map((g) => ({ label: g, value: g }))
 
   const bookFormFields = (
     <div className="space-y-4">
@@ -153,39 +508,22 @@ export const BookManagement = () => {
           onChange={(e) => setForm({ ...form, title: e.target.value })}
         />
       </FormField>
-      <FormField label="Author" htmlFor="book-author" required>
-        <Input
-          id="book-author"
-          placeholder="e.g. Robert C. Martin"
-          value={form.author}
-          onChange={(e) => setForm({ ...form, author: e.target.value })}
-        />
-      </FormField>
       <div className="grid grid-cols-2 gap-4">
-        <FormField label="ISBN" htmlFor="book-isbn" required>
+        <FormField label="Author" htmlFor="book-author" required>
           <Input
-            id="book-isbn"
-            placeholder="e.g. 978-0132350884"
-            value={form.isbn}
-            onChange={(e) => setForm({ ...form, isbn: e.target.value })}
+            id="book-author"
+            placeholder="e.g. Robert C. Martin"
+            value={form.author}
+            onChange={(e) => setForm({ ...form, author: e.target.value })}
           />
         </FormField>
-        <FormField label="Genre" htmlFor="book-genre" required>
+        <FormField label="Category" htmlFor="book-genre" required>
           <Select
             id="book-genre"
-            value={form.genre}
-            onChange={(e) => setForm({ ...form, genre: e.target.value })}
+            value={form.category}
+            onChange={(e) => setForm({ ...form, category: e.target.value })}
             placeholder="Select genre"
-            options={[
-              { label: "Fiction", value: "Fiction" },
-              { label: "Science", value: "Science" },
-              { label: "Computer Science", value: "Computer Science" },
-              { label: "Software Engineering", value: "Software Engineering" },
-              { label: "History", value: "History" },
-              { label: "Philosophy", value: "Philosophy" },
-              { label: "Biography", value: "Biography" },
-              { label: "Other", value: "Other" },
-            ]}
+            options={genreOptions}
           />
         </FormField>
       </div>
@@ -194,30 +532,21 @@ export const BookManagement = () => {
           <Input
             id="book-publisher"
             placeholder="e.g. Prentice Hall"
-            value={form.publisher}
-            onChange={(e) => setForm({ ...form, publisher: e.target.value })}
+            value={form.publisherName}
+            onChange={(e) =>
+              setForm({ ...form, publisherName: e.target.value })
+            }
           />
         </FormField>
-        <FormField label="Published Year" htmlFor="book-year">
+        <FormField label="Publish Date" htmlFor="book-date">
           <Input
-            id="book-year"
-            type="number"
-            placeholder="e.g. 2023"
-            value={form.publishedYear}
-            onChange={(e) => setForm({ ...form, publishedYear: e.target.value })}
+            id="book-date"
+            type="date"
+            value={form.publishDate}
+            onChange={(e) => setForm({ ...form, publishDate: e.target.value })}
           />
         </FormField>
       </div>
-      <FormField label="Total Copies" htmlFor="book-copies" required>
-        <Input
-          id="book-copies"
-          type="number"
-          min="1"
-          placeholder="e.g. 5"
-          value={form.totalCopies}
-          onChange={(e) => setForm({ ...form, totalCopies: e.target.value })}
-        />
-      </FormField>
       <FormField label="Description" htmlFor="book-description">
         <Textarea
           id="book-description"
@@ -230,164 +559,483 @@ export const BookManagement = () => {
     </div>
   )
 
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'manage', label: 'Manage Books' },
+    { id: 'issue', label: 'Issue Book' },
+  ]
+
   return (
-    <AppLayout sidebarItems={sidebarItems} topbarTitle="Book Management">
+    <AppLayout sidebarItems={sidebarItems} topbarTitle="Books">
       <div className="w-full space-y-6 p-6 pb-10">
-        {/* Page Header */}
         <PageHeader
-          title="Book Management"
-          description="Add, edit, and manage the library's book inventory"
+          title="Books"
+          description="Browse the catalog, manage inventory, and issue books to members"
           action={
-            <div className="flex items-center gap-3">
-              <Button onClick={openAdd}>Add Book</Button>
-              <Link to="/librarian/catalog">
-                <Button variant="secondary">Browse Catalog</Button>
-              </Link>
-              <Link to="/librarian">
-                <Button variant="secondary">Back to Dashboard</Button>
-              </Link>
-            </div>
+            <Link to="/librarian">
+              <Button variant="secondary">Back to Dashboard</Button>
+            </Link>
           }
         />
 
-        {/* Success Banner */}
-        {showSuccess ? (
+        {showSuccess && (
           <Banner
             title={showSuccess}
-            variant="info"
+            variant="success"
             onClose={() => setShowSuccess(null)}
           />
-        ) : null}
+        )}
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-500">Total Books</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">{books.length}</p>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-500">Available</p>
-            <p className="mt-1 text-2xl font-semibold text-green-600">
-              {books.filter((b) => b.status === "available").length}
-            </p>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-500">Issued</p>
-            <p className="mt-1 text-2xl font-semibold text-indigo-600">
-              {books.filter((b) => b.status === "issued").length}
-            </p>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-            <p className="text-sm text-gray-500">Total Copies</p>
-            <p className="mt-1 text-2xl font-semibold text-gray-900">
-              {books.reduce((acc, b) => acc + b.totalCopies, 0)}
-            </p>
-          </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {[
+            {
+              label: 'Total Books',
+              value: String(totalElements),
+              color: 'text-gray-900',
+            },
+            {
+              label: 'Available',
+              value: String(
+                books.filter((b) => (b.trueAvailableStock ?? 0) > 0).length
+              ),
+              color: 'text-green-600',
+            },
+          ].map(({ label, value, color }) => (
+            <div
+              key={label}
+              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+            >
+              <p className="text-sm text-gray-500">{label}</p>
+              <p className={`mt-1 text-2xl font-semibold ${color}`}>{value}</p>
+            </div>
+          ))}
         </div>
 
-        {/* Search & Filters */}
-        <SearchCard title="Search Books" description="Find books by title, author, ISBN, or ID">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
-            <div className="sm:col-span-4">
-              <Input
-                placeholder="Search by title, author, or ISBN..."
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="sm:col-span-3">
-              <Select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                placeholder="All Statuses"
-                options={[
-                  { label: "All Statuses", value: "" },
-                  { label: "Available", value: "available" },
-                  { label: "Issued", value: "issued" },
-                  { label: "Reserved", value: "reserved" },
-                ]}
-              />
-            </div>
-            <div className="sm:col-span-3">
-              <Select
-                value={filterGenre}
-                onChange={(e) => setFilterGenre(e.target.value)}
-                placeholder="All Genres"
-                options={[
-                  { label: "All Genres", value: "" },
-                  ...genres.map((g) => ({ label: g, value: g })),
-                ]}
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <Button
-                className="w-full"
-                variant="secondary"
-                onClick={() => {
-                  setSearch("")
-                  setFilterStatus("")
-                  setFilterGenre("")
-                }}
-              >
-                Clear
-              </Button>
-            </div>
-          </div>
-        </SearchCard>
-
-        {/* Results Summary */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-gray-600">
-            Showing <span className="font-medium text-gray-900">{filteredBooks.length}</span> of{" "}
-            <span className="font-medium text-gray-900">{books.length}</span> books
-          </p>
+        <div className="flex gap-1 rounded-xl border border-gray-200 bg-gray-100 p-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${activeTab === tab.id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        {/* Books List */}
-        <div className="space-y-3">
-          {filteredBooks.map((book) => (
-            <ListItemCard
-              key={book.id}
-              title={
-                <div className="flex items-center gap-2">
-                  <span>{book.title}</span>
-                  <Badge label={book.id} variant="issued" />
-                </div>
-              }
-              subtitle={
-                <span>
-                  {book.author} · ISBN: {book.isbn} · {book.genre}
-                </span>
-              }
-              meta={`${book.availableCopies}/${book.totalCopies} copies available · ${book.publisher} · ${book.publishedYear}`}
+        {activeTab === 'manage' && (
+          <>
+            <SearchCard
+              title="Book Inventory"
+              description="Add, edit, and manage the book catalog"
               action={
-                <div className="flex items-center gap-2">
-                  <Badge
-                    label={book.status.charAt(0).toUpperCase() + book.status.slice(1)}
-                    variant={statusBadgeVariant[book.status]}
+                <Button
+                  onClick={() => {
+                    setForm(emptyForm)
+                    setIsAddOpen(true)
+                  }}
+                >
+                  Add Book
+                </Button>
+              }
+            >
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
+                <div className="sm:col-span-4">
+                  <Input
+                    placeholder="Search by title…"
+                    type="search"
+                    value={manSearch}
+                    onChange={(e) => setManSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   />
-                  <Button
-                    variant="secondary"
-                    className="text-xs"
-                    onClick={() => openEdit(book)}
-                  >
-                    Edit
+                </div>
+                <div className="sm:col-span-3">
+                  <Select
+                    placeholder="All Genres"
+                    value={manFilterGenre}
+                    onChange={(e) => setManFilterGenre(e.target.value)}
+                    options={[
+                      { label: 'All Genres', value: '' },
+                      ...genreOptions,
+                    ]}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <Button className="w-full" onClick={handleSearch}>
+                    Search
                   </Button>
                 </div>
-              }
-            />
-          ))}
+                <div className="sm:col-span-3">
+                  <Button
+                    className="w-full"
+                    variant="secondary"
+                    onClick={handleClearSearch}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            </SearchCard>
 
-          {filteredBooks.length === 0 ? (
-            <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
-              <p className="text-gray-500">No books found matching your search criteria.</p>
+            {manLoading ? (
+              <div className="py-12 text-center text-sm text-gray-500">
+                Loading books…
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {books.map((book) => (
+                  <ListItemCard
+                    key={book.bookId}
+                    title={book.title}
+                    subtitle={`${book.authors?.join(', ') ?? '—'} · ${book.categories?.join(', ') ?? '—'}`}
+                    meta={`${book.trueAvailableStock ?? 0} available copies · ${book.publisher ?? ''}`}
+                    action={
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          label={
+                            (book.trueAvailableStock ?? 0) > 0
+                              ? 'Available'
+                              : 'Unavailable'
+                          }
+                          variant={
+                            (book.trueAvailableStock ?? 0) > 0
+                              ? 'available'
+                              : 'issued'
+                          }
+                        />
+                        <Button
+                          variant="secondary"
+                          className="text-xs"
+                          onClick={() => openCopies(book)}
+                        >
+                          Copies
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          className="text-xs"
+                          onClick={() => openEdit(book)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          className="text-xs text-red-600 hover:text-red-700"
+                          onClick={() => openDeleteBook(book)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    }
+                  />
+                ))}
+                {books.length === 0 && (
+                  <div className="rounded-xl border border-gray-200 bg-white p-8 text-center">
+                    <p className="text-gray-500">
+                      No books found matching your criteria.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={manPage + 1}
+                totalPages={totalPages}
+                onChange={handlePageChange}
+              />
+            )}
+          </>
+        )}
+
+        {activeTab === 'issue' && (
+          <>
+            {showIssueSuccess && (
+              <Banner
+                title="Book issued successfully! The loan has been recorded."
+                variant="success"
+                onClose={() => setShowIssueSuccess(false)}
+              />
+            )}
+
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              {/* Member select */}
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h3 className="mb-4 text-lg font-semibold text-gray-900">
+                  1. Select Member
+                </h3>
+                <FormField
+                  label="Search Member"
+                  htmlFor="member-search"
+                  helperText="Search by name or email, then click Search"
+                >
+                  <div className="flex gap-2">
+                    <Input
+                      id="member-search"
+                      placeholder="e.g. Alex Johnson"
+                      value={memberSearch}
+                      onChange={(e) => {
+                        setMemberSearch(e.target.value)
+                        setSelectedMember(null)
+                      }}
+                    />
+                    <Button
+                      onClick={handleMemberSearch}
+                      disabled={memberSearchLoading || memberSearch.length < 2}
+                    >
+                      {memberSearchLoading ? '…' : 'Search'}
+                    </Button>
+                  </div>
+                </FormField>
+                {memberResults.length > 0 && !selectedMember && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-sm font-medium text-gray-600">
+                      {memberResults.length} member(s) found
+                    </p>
+                    {memberResults.map((m) => (
+                      <button
+                        key={m.userId}
+                        type="button"
+                        onClick={() => {
+                          setSelectedMember(m)
+                          setMemberSearch(m.fullName)
+                          setMemberResults([])
+                        }}
+                        className="w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-left transition hover:border-indigo-300 hover:bg-indigo-50"
+                      >
+                        <p className="font-medium text-gray-900">
+                          {m.fullName}
+                        </p>
+                        <p className="text-sm text-gray-500">{m.email}</p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedMember && (
+                  <div className="mt-4 rounded-lg border-2 border-indigo-200 bg-indigo-50 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {selectedMember.fullName}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {selectedMember.email}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedMember(null)
+                          setMemberSearch('')
+                        }}
+                        className="rounded-md p-1 text-gray-400 hover:bg-white hover:text-gray-600"
+                      >
+                        <XIcon />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Book select */}
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h3 className="mb-4 text-lg font-semibold text-gray-900">
+                  2. Select Book
+                </h3>
+                <FormField
+                  label="Search Book"
+                  htmlFor="issue-book-search"
+                  helperText="Search by title, then click Search"
+                >
+                  <div className="flex gap-2">
+                    <Input
+                      id="issue-book-search"
+                      placeholder="e.g. Clean Code"
+                      value={issueBookSearch}
+                      onChange={(e) => {
+                        setIssueBookSearch(e.target.value)
+                        setSelectedBook(null)
+                        setSelectedCopy(null)
+                      }}
+                    />
+                    <Button
+                      onClick={handleIssueBookSearch}
+                      disabled={issueBookLoading || issueBookSearch.length < 2}
+                    >
+                      {issueBookLoading ? '…' : 'Search'}
+                    </Button>
+                  </div>
+                </FormField>
+                {issueBookResults.length > 0 && !selectedBook && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-sm font-medium text-gray-600">
+                      {issueBookResults.length} book(s) found
+                    </p>
+                    {issueBookResults.map((b) => (
+                      <button
+                        key={b.bookId}
+                        type="button"
+                        onClick={() => {
+                          if ((b.trueAvailableStock ?? 0) > 0)
+                            handleSelectBook(b)
+                        }}
+                        disabled={(b.trueAvailableStock ?? 0) === 0}
+                        className={`w-full rounded-lg border p-3 text-left transition ${(b.trueAvailableStock ?? 0) === 0 ? 'cursor-not-allowed border-gray-200 bg-gray-100 opacity-60' : 'border-gray-200 bg-gray-50 hover:border-indigo-300 hover:bg-indigo-50'}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {b.title}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {b.authors?.join(', ')}
+                            </p>
+                          </div>
+                          <Badge
+                            label={
+                              (b.trueAvailableStock ?? 0) > 0
+                                ? `${b.trueAvailableStock} available`
+                                : 'Unavailable'
+                            }
+                            variant={
+                              (b.trueAvailableStock ?? 0) > 0
+                                ? 'available'
+                                : 'overdue'
+                            }
+                          />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {selectedBook && (
+                  <div className="mt-4 rounded-lg border-2 border-indigo-200 bg-indigo-50 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {selectedBook.title}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {selectedBook.authors?.join(', ')}
+                        </p>
+                        {copiesLoading ? (
+                          <p className="mt-1 text-xs text-gray-500">
+                            Loading copies…
+                          </p>
+                        ) : (
+                          <p className="mt-1 text-xs text-gray-500">
+                            {copies.length} available cop
+                            {copies.length === 1 ? 'y' : 'ies'}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedBook(null)
+                          setIssueBookSearch('')
+                          setSelectedCopy(null)
+                          setCopies([])
+                        }}
+                        className="rounded-md p-1 text-gray-400 hover:bg-white hover:text-gray-600"
+                      >
+                        <XIcon />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          ) : null}
-        </div>
+
+            {/* Confirm & Issue */}
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h3 className="mb-4 text-lg font-semibold text-gray-900">
+                3. Confirm &amp; Issue
+              </h3>
+              {canIssue ? (
+                <div className="mb-4 space-y-2 rounded-lg border border-gray-100 bg-gray-50 p-4">
+                  {[
+                    { label: 'Member', value: selectedMember!.fullName },
+                    { label: 'Email', value: selectedMember!.email },
+                    { label: 'Book', value: selectedBook!.title },
+                    {
+                      label: 'Copy ID',
+                      value: selectedCopy!.copyId.slice(0, 8) + '…',
+                    },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex justify-between text-sm">
+                      <span className="text-gray-500">{label}</span>
+                      <span className="font-medium text-gray-900">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mb-4 text-sm text-gray-500">
+                  Please select a member and an available book above to proceed.
+                </p>
+              )}
+              <div className="flex items-center gap-3">
+                <Button disabled={!canIssue} onClick={handleIssue}>
+                  {issuing ? 'Issuing…' : 'Issue Book'}
+                </Button>
+                <Button variant="secondary" onClick={clearIssueForm}>
+                  Clear Form
+                </Button>
+              </div>
+            </div>
+
+            {/* Recent Issues */}
+            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <h3 className="mb-4 text-lg font-semibold text-gray-900">
+                Recent Issues
+              </h3>
+              {recentTx.length === 0 ? (
+                <p className="text-sm text-gray-500">No recent transactions.</p>
+              ) : (
+                <div className="space-y-3">
+                  {recentTx.map((tx) => (
+                    <ListItemCard
+                      key={tx.transactionId}
+                      title={tx.bookTitle ?? 'Unknown Book'}
+                      subtitle={`Issued ${fmtDate(tx.checkout_date)} · Due ${fmtDate(tx.due_date)}`}
+                      action={
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            label={
+                              tx.status.charAt(0).toUpperCase() +
+                              tx.status.slice(1)
+                            }
+                            variant={
+                              tx.status === 'returned'
+                                ? 'available'
+                                : tx.status === 'overdue'
+                                  ? 'overdue'
+                                  : 'issued'
+                            }
+                          />
+                          {(tx.status === 'issued' ||
+                            tx.status === 'overdue') && (
+                            <Button
+                              variant="secondary"
+                              className="text-xs"
+                              disabled={returningId === tx.transactionId}
+                              onClick={() => handleReturnBook(tx)}
+                            >
+                              {returningId === tx.transactionId
+                                ? '…'
+                                : 'Return'}
+                            </Button>
+                          )}
+                        </div>
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Add Book Modal */}
       <Modal
         open={isAddOpen}
         title="Add New Book"
@@ -396,15 +1044,14 @@ export const BookManagement = () => {
           setForm(emptyForm)
         }}
         primaryAction={
-          <Button onClick={handleAdd} disabled={!isFormValid}>
-            Add Book
+          <Button onClick={handleAdd} disabled={!isFormValid || saving}>
+            {saving ? 'Saving…' : 'Add Book'}
           </Button>
         }
       >
         {bookFormFields}
       </Modal>
 
-      {/* Edit Book Modal */}
       <Modal
         open={isEditOpen}
         title="Edit Book"
@@ -414,20 +1061,99 @@ export const BookManagement = () => {
           setForm(emptyForm)
         }}
         primaryAction={
-          <Button onClick={handleEdit} disabled={!isFormValid}>
-            Save Changes
+          <Button onClick={handleEdit} disabled={!isFormValid || saving}>
+            {saving ? 'Saving…' : 'Save Changes'}
           </Button>
         }
       >
-        {editingBook ? (
-          <div className="space-y-4">
-            <div className="rounded-lg bg-gray-50 p-3">
-              <p className="text-xs text-gray-500">Book ID</p>
-              <p className="font-medium text-gray-900">{editingBook.id}</p>
-            </div>
-            {bookFormFields}
+        {editingBook ? <div className="space-y-4">{bookFormFields}</div> : null}
+      </Modal>
+
+      <Modal
+        open={isDeleteOpen}
+        title="Delete Book"
+        onClose={() => {
+          setIsDeleteOpen(false)
+          setDeleteTarget(null)
+        }}
+        primaryAction={
+          <Button
+            className="bg-red-600 hover:bg-red-700 focus:ring-red-500"
+            onClick={handleDeleteBook}
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting…' : 'Delete Book'}
+          </Button>
+        }
+      >
+        <p className="text-sm text-gray-600">
+          Are you sure you want to delete{' '}
+          <span className="font-semibold text-gray-900">
+            "{deleteTarget?.title}"
+          </span>
+          ? This will remove the book and all its copies. This action cannot be
+          undone.
+        </p>
+      </Modal>
+
+      <Modal
+        open={isCopiesOpen}
+        title={`Copies — ${copiesBook?.title ?? ''}`}
+        onClose={() => {
+          setIsCopiesOpen(false)
+          setCopiesBook(null)
+          setManagedCopies([])
+        }}
+        primaryAction={
+          <Button onClick={handleAddCopy} disabled={addingCopy}>
+            {addingCopy ? 'Adding…' : 'Add Copy'}
+          </Button>
+        }
+      >
+        {copiesManageLoading ? (
+          <p className="py-4 text-center text-sm text-gray-500">
+            Loading copies…
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {managedCopies.map((c) => (
+              <div
+                key={c.copyId}
+                className="flex items-center justify-between rounded-lg border border-gray-200 p-3"
+              >
+                <div className="space-y-1">
+                  <p className="font-mono text-xs text-gray-500">
+                    {c.copyId.slice(0, 8)}…
+                  </p>
+                  <Badge
+                    label={c.status}
+                    variant={
+                      c.status === 'AVAILABLE'
+                        ? 'available'
+                        : c.status === 'ISSUED'
+                          ? 'issued'
+                          : 'overdue'
+                    }
+                  />
+                </div>
+                {c.status === 'AVAILABLE' && (
+                  <Button
+                    variant="secondary"
+                    className="text-xs"
+                    onClick={() => handleMarkCopyLost(c)}
+                  >
+                    Mark Lost
+                  </Button>
+                )}
+              </div>
+            ))}
+            {managedCopies.length === 0 && (
+              <p className="py-4 text-center text-sm text-gray-500">
+                No copies found for this book. Add one above.
+              </p>
+            )}
           </div>
-        ) : null}
+        )}
       </Modal>
     </AppLayout>
   )

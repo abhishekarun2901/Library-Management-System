@@ -67,9 +67,15 @@ public class FineServiceImpl implements FineService {
     }
 
     private FineResponse mapToResponse(Fine fine) {
+        String title = null;
+        try { title = fine.getTransaction().getCopy().getBook().getTitle(); } catch (Exception ignored) {}
+        String memberName = null;
+        try { memberName = fine.getUser().getFullName(); } catch (Exception ignored) {}
         return FineResponse.builder()
                 .fineId(fine.getFineId())
                 .transactionId(fine.getTransaction().getTransactionId())
+                .bookTitle(title)
+                .memberName(memberName)
                 .amount(fine.getAmount())
                 .reason(fine.getReason())
                 .issuedAt(fine.getIssuedAt())

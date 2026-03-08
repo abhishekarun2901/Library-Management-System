@@ -13,6 +13,7 @@ public class FineResponse {
     private UUID fineId;
     private UUID transactionId;
     private String bookTitle;
+    private String memberName;
     private BigDecimal amount;
     private String reason;
     private LocalDateTime issuedAt;

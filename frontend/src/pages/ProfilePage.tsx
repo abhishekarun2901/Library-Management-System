@@ -1,8 +1,13 @@
-import type { ReactNode } from "react"
-import { AppLayout, PageHeader } from "../components/layout"
-import { StatCard, SearchCard } from "../components/composite"
-import { memberSidebarItems } from "../config/sidebarConfig"
-import { Bell, Calendar, Hash, Lock, Mail, Phone, Shield, User } from "lucide-react"
+import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
+import { AppLayout, PageHeader } from '../components/layout'
+import { StatCard, SearchCard } from '../components/composite'
+import { memberSidebarItems } from '../config/sidebarConfig'
+import { Bell, Calendar, Lock, Mail, Shield, User } from 'lucide-react'
+import { useAuthStore } from '../store/authStore'
+import { getUserHistory, getUserFines } from '../services/userService'
+import { getTransactions } from '../services/transactionService'
+import { getReservations } from '../services/reservationService'
 
 // ── Helper sub-components ──────────────────────────────────────────────────────
 
@@ -37,6 +42,49 @@ const SettingRow = ({ icon, label, description }: SettingRowProps) => (
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export const ProfilePage = () => {
+  const { fullName, token, memberSince } = useAuthStore()
+  const name = fullName ?? 'User'
+  // Derive email from JWT payload (sub claim)
+  let email = 'N/A'
+  try {
+    if (token) {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      email = payload.sub ?? 'N/A'
+    }
+  } catch {
+    /* ignore */
+  }
+  const initials = name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+
+  const [totalBorrowed, setTotalBorrowed] = useState<string>('—')
+  const [activeLoans, setActiveLoans] = useState<string>('—')
+  const [reservationCount, setReservationCount] = useState<string>('—')
+
+  useEffect(() => {
+    if (!token) return
+    Promise.all([
+      getUserHistory(token),
+      getUserFines(token),
+      getTransactions(token),
+      getReservations(token),
+    ])
+      .then(([history, _fines, txs, reservations]) => {
+        setTotalBorrowed(String(history.length))
+        const active = txs.filter(
+          (t) => t.status === 'issued' || t.status === 'overdue'
+        )
+        setActiveLoans(String(active.length))
+        const activeRes = reservations.filter((r) => r.status === 'active')
+        setReservationCount(String(activeRes.length))
+      })
+      .catch(console.error)
+  }, [token])
+
   return (
     <AppLayout sidebarItems={memberSidebarItems} topbarTitle="My Profile">
       <div className="w-full space-y-6 p-6 pb-10">
@@ -55,15 +103,12 @@ export const ProfilePage = () => {
           <div className="relative flex items-center gap-5">
             {/* Avatar */}
             <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-2xl font-bold ring-2 ring-white/30">
-              AJ
+              {initials}
             </div>
             <div>
-              <h2 className="text-xl font-bold">Alex Johnson</h2>
-              <p className="text-indigo-200 text-sm">member@booking.com</p>
+              <h2 className="text-xl font-bold">{name}</h2>
+              <p className="text-indigo-200 text-sm">{email}</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <span className="inline-flex items-center rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-medium text-white">
-                  ID: M001
-                </span>
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-400/30 px-2.5 py-0.5 text-xs font-medium text-emerald-100">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
                   Active Member
@@ -75,10 +120,10 @@ export const ProfilePage = () => {
 
         {/* Stats grid */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Books Borrowed" value="27" />
-          <StatCard label="Active Loans" value="3" />
-          <StatCard label="Reservations" value="2" />
-          <StatCard label="Member Since" value="Jan 2024" />
+          <StatCard label="Books Borrowed" value={totalBorrowed} />
+          <StatCard label="Active Loans" value={activeLoans} />
+          <StatCard label="Reservations" value={reservationCount} />
+          <StatCard label="Member Since" value={memberSince ?? '—'} />
         </div>
 
         {/* Info sections */}
@@ -89,11 +134,21 @@ export const ProfilePage = () => {
             description="Your account details on file"
           >
             <div className="divide-y divide-gray-100">
-              <InfoRow icon={<User className="h-4 w-4" />} label="Full Name" value="Alex Johnson" />
-              <InfoRow icon={<Mail className="h-4 w-4" />} label="Email Address" value="member@booking.com" />
-              <InfoRow icon={<Phone className="h-4 w-4" />} label="Phone Number" value="+1 (555) 234-5678" />
-              <InfoRow icon={<Hash className="h-4 w-4" />} label="Member ID" value="M001" />
-              <InfoRow icon={<Calendar className="h-4 w-4" />} label="Member Since" value="January 15, 2024" />
+              <InfoRow
+                icon={<User className="h-4 w-4" />}
+                label="Full Name"
+                value={name}
+              />
+              <InfoRow
+                icon={<Mail className="h-4 w-4" />}
+                label="Email Address"
+                value={email}
+              />
+              <InfoRow
+                icon={<Calendar className="h-4 w-4" />}
+                label="Member Since"
+                value={memberSince ?? '—'}
+              />
             </div>
           </SearchCard>
 

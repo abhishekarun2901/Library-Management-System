@@ -24,4 +24,6 @@ public interface UserService {
     List<TransactionResponse> getUserHistory(UUID userId);
     List<FineResponse> getUserFines(UUID userId);
     void updateLastLogin(String email);
+    String getFullNameByEmail(String email);
+    java.time.LocalDateTime getCreatedAtByEmail(String email);
 }
