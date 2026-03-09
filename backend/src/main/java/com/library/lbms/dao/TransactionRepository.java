@@ -16,6 +16,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
 
     Optional<Transaction> findByCopy_CopyIdAndReturnDateIsNull(UUID copyId);
 
+    boolean existsByCopy_CopyId(UUID copyId);
+
     List<Transaction> findByUser_UserId(UUID userId);
 
     long countByUser_UserIdAndReturnDateIsNull(UUID userId);

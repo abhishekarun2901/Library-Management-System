@@ -17,8 +17,24 @@ import java.util.List;
 public class BookSpecification {
 
     public static Specification<Book> filterBooks(String title, String isbn, String author, String category) {
+        return filterBooks(title, isbn, author, category, null);
+    }
+
+    public static Specification<Book> filterBooks(String title, String isbn, String author, String category, String search) {
         return (root, query, cb) -> {
             Specification<Book> spec = Specification.allOf();
+
+            // 'search' matches title OR author name (used by catalog search bar)
+            if (StringUtils.hasText(search)) {
+                spec = spec.and((r, q, c) -> {
+                    q.distinct(true);
+                    Join<Book, Author> authorJoin = r.join("authors", JoinType.LEFT);
+                    return c.or(
+                        c.like(c.lower(r.get("title")), "%" + search.toLowerCase() + "%"),
+                        c.like(c.lower(authorJoin.get("name")), "%" + search.toLowerCase() + "%")
+                    );
+                });
+            }
 
             // Backward-compatible title search: title OR isbn
             if (StringUtils.hasText(title)) {

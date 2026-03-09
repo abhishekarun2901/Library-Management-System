@@ -13,6 +13,7 @@ import com.library.lbms.entity.User;
 public interface UserRepository extends JpaRepository<User, UUID> {
 
     Optional<User> findByEmail(String email);
+    boolean existsByEmail(String email);
     List<User> findByIsActiveTrue();
     Page<User> findByIsActiveTrue(Pageable pageable);
 }

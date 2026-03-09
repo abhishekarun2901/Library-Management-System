@@ -13,7 +13,11 @@ export async function apiFetch<T>(
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers,
+    cache: 'no-store',
+  })
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')

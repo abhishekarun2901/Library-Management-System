@@ -6,6 +6,8 @@ import lombok.Data;
 public class UpdateUserRequest {
 
     private String fullName;
+    private String email;
+    private String password;
     private Boolean isActive;
     private String blacklistReason;
 }

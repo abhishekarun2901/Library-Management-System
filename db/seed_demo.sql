@@ -556,7 +556,7 @@ INSERT INTO notifications (
   (
     'e1000000-0000-0000-0000-000000000007',
     'a1b2c3d4-0001-0001-0001-000000000005',
-    'Your reservation for "The Cowboy" is confirmed. You will be notified when the copy becomes available.',
+    'Your reservation for "The Cowboy" is confirmed.',
     'RESERVATION', false,
     NOW() - INTERVAL '2 hours'
   ),
@@ -574,7 +574,7 @@ INSERT INTO notifications (
   (
     'e1000000-0000-0000-0000-000000000009',
     'a1b2c3d4-0001-0001-0001-000000000002',
-    'Your reservation for "Chesapeake Blue (The Chesapeake Bay Saga, Book 4)" is confirmed. You will be notified when available.',
+    'Your reservation for "Chesapeake Blue (The Chesapeake Bay Saga, Book 4)" is confirmed.',
     'RESERVATION', false,
     NOW() - INTERVAL '3 hours'
   ),

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { Badge, Button, Input, Select, Textarea } from '../components/ui'
@@ -19,6 +19,7 @@ import {
   getCopies,
   createCopy,
   updateCopyStatus,
+  deleteCopy,
   type BookResponse,
   type CopyResponse,
 } from '../services/bookService'
@@ -29,6 +30,7 @@ import {
   getTransactions,
   type TransactionResponse,
 } from '../services/transactionService'
+import { getReports, type ReportResponse } from '../services/reportService'
 
 type Tab = 'manage' | 'issue'
 
@@ -131,7 +133,7 @@ export const BookManagement = () => {
 
   // Manage tab state
   const [books, setBooks] = useState<BookResponse[]>([])
-  const [totalElements, setTotalElements] = useState(0)
+  const [catalogTotal, setCatalogTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [manPage, setManPage] = useState(0)
   const [manSearch, setManSearch] = useState('')
@@ -154,9 +156,18 @@ export const BookManagement = () => {
   const [managedCopies, setManagedCopies] = useState<CopyResponse[]>([])
   const [copiesManageLoading, setCopiesManageLoading] = useState(false)
   const [addingCopy, setAddingCopy] = useState(false)
+  const [deletingCopyId, setDeletingCopyId] = useState<string | null>(null)
 
   // Return book state
   const [returningId, setReturningId] = useState<string | null>(null)
+
+  // Global stats
+  const [reportData, setReportData] = useState<ReportResponse | null>(null)
+  const [allTx, setAllTx] = useState<TransactionResponse[]>([])
+  const [genreOptions, setGenreOptions] = useState<
+    { label: string; value: string }[]
+  >([])
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Issue tab state
   const [memberSearch, setMemberSearch] = useState('')
@@ -190,21 +201,57 @@ export const BookManagement = () => {
     )
       .then((data) => {
         setBooks(data.content)
-        setTotalElements(data.totalElements)
         setTotalPages(Math.max(1, data.totalPages))
       })
       .catch(console.error)
       .finally(() => setManLoading(false))
   }
 
+  const refreshCatalogTotal = () => {
+    if (!token) return
+    getBooks({ page: 0, size: 1 }, token)
+      .then((data) => setCatalogTotal(data.totalElements))
+      .catch(console.error)
+  }
+
   useEffect(() => {
-    loadBooks(0)
+    loadBooks(manPage)
+    refreshCatalogTotal()
+  }, [token])
+
+  useEffect(() => {
+    if (!token) return
+    getReports(token)
+      .then((data) => {
+        setReportData(data)
+      })
+      .catch(console.error)
+  }, [token])
+
+  const refreshReports = () => {
+    if (!token) return
+    getReports(token).then(setReportData).catch(console.error)
+  }
+
+  useEffect(() => {
+    if (!token) return
+    getBooks({ page: 0, size: 1000 }, token)
+      .then((data) => {
+        const cats = Array.from(
+          new Set(data.content.flatMap((b) => b.categories ?? []))
+        )
+          .sort()
+          .map((c) => ({ label: c, value: c }))
+        setGenreOptions(cats)
+      })
+      .catch(console.error)
   }, [token])
 
   useEffect(() => {
     if (!token) return
     getTransactions(token)
-      .then((txs) =>
+      .then((txs) => {
+        setAllTx(txs)
         setRecentTx(
           [...txs]
             .sort((a, b) =>
@@ -212,7 +259,7 @@ export const BookManagement = () => {
             )
             .slice(0, 5)
         )
-      )
+      })
       .catch(console.error)
   }, [token])
 
@@ -225,6 +272,14 @@ export const BookManagement = () => {
   const handleSearch = () => {
     setManPage(0)
     loadBooks(0, manSearch, manFilterGenre)
+  }
+
+  const handleSearchDebounced = (value: string, genre = manFilterGenre) => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    searchDebounceRef.current = setTimeout(() => {
+      setManPage(0)
+      loadBooks(0, value, genre)
+    }, 400)
   }
 
   const handleClearSearch = () => {
@@ -253,6 +308,7 @@ export const BookManagement = () => {
       setForm(emptyForm)
       setIsAddOpen(false)
       loadBooks(0)
+      refreshCatalogTotal()
     } catch {
       setShowSuccess('Failed to add book.')
     } finally {
@@ -309,10 +365,32 @@ export const BookManagement = () => {
     setDeleting(true)
     try {
       await deleteBook(deleteTarget.bookId, token)
+
       setShowSuccess(`"${deleteTarget.title}" has been deleted.`)
       setIsDeleteOpen(false)
+
+      // Remove book from list immediately
+      setBooks((prev) => prev.filter((b) => b.bookId !== deleteTarget.bookId))
+      refreshCatalogTotal()
+
+      // Adjust stats without a re-fetch
+      refreshReports()
+
+      // Refresh transactions list (issued transactions for this book are now gone)
+      getTransactions(token)
+        .then((txs) => {
+          setAllTx(txs)
+          setRecentTx(
+            [...txs]
+              .sort((a, b) =>
+                (b.checkout_date ?? '').localeCompare(a.checkout_date ?? '')
+              )
+              .slice(0, 5)
+          )
+        })
+        .catch(console.error)
+
       setDeleteTarget(null)
-      loadBooks(manPage)
     } catch {
       setShowSuccess('Failed to delete book.')
     } finally {
@@ -340,6 +418,8 @@ export const BookManagement = () => {
     try {
       const c = await createCopy(copiesBook.bookId, token)
       setManagedCopies((prev) => [...prev, c])
+      loadBooks(manPage)
+      refreshReports()
     } catch {
       setShowSuccess('Failed to add copy.')
     } finally {
@@ -354,8 +434,41 @@ export const BookManagement = () => {
       setManagedCopies((prev) =>
         prev.map((c) => (c.copyId === copy.copyId ? updated : c))
       )
+      loadBooks(manPage)
+      refreshReports()
     } catch {
       setShowSuccess('Failed to update copy status.')
+    }
+  }
+
+  const handleMarkCopyFound = async (copy: CopyResponse) => {
+    if (!token) return
+    try {
+      const updated = await updateCopyStatus(copy.copyId, 'AVAILABLE', token)
+      setManagedCopies((prev) =>
+        prev.map((c) => (c.copyId === copy.copyId ? updated : c))
+      )
+      loadBooks(manPage)
+      refreshReports()
+      setShowSuccess('Copy marked as available.')
+    } catch {
+      setShowSuccess('Failed to update copy status.')
+    }
+  }
+
+  const handleDeleteCopy = async (copy: CopyResponse) => {
+    if (!token) return
+    setDeletingCopyId(copy.copyId)
+    try {
+      await deleteCopy(copy.copyId, token)
+      setManagedCopies((prev) => prev.filter((c) => c.copyId !== copy.copyId))
+      loadBooks(manPage)
+      refreshReports()
+      setShowSuccess('Copy deleted.')
+    } catch (e: unknown) {
+      setShowSuccess(e instanceof Error ? e.message : 'Failed to delete copy.')
+    } finally {
+      setDeletingCopyId(null)
     }
   }
 
@@ -369,6 +482,14 @@ export const BookManagement = () => {
           t.transactionId === tx.transactionId
             ? { ...t, status: 'returned' }
             : t
+        )
+      )
+      // Increment available stock for the book this copy belongs to
+      setBooks((prev) =>
+        prev.map((b) =>
+          b.title === tx.bookTitle
+            ? { ...b, trueAvailableStock: (b.trueAvailableStock ?? 0) + 1 }
+            : b
         )
       )
       setShowSuccess('Book returned successfully.')
@@ -450,7 +571,8 @@ export const BookManagement = () => {
       setIssueBookSearch('')
       // Refresh recent transactions
       getTransactions(token)
-        .then((txs) =>
+        .then((txs) => {
+          setAllTx(txs)
           setRecentTx(
             [...txs]
               .sort((a, b) =>
@@ -458,7 +580,7 @@ export const BookManagement = () => {
               )
               .slice(0, 5)
           )
-        )
+        })
         .catch(console.error)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Failed to issue book.'
@@ -485,18 +607,6 @@ export const BookManagement = () => {
     form.author.trim() !== '' &&
     form.category.trim() !== ''
   const canIssue = selectedMember !== null && selectedCopy !== null && !issuing
-
-  const genreOptions = [
-    'Fiction',
-    'Science',
-    'Computer Science',
-    'Software Engineering',
-    'History',
-    'Philosophy',
-    'Biography',
-    'Technology',
-    'Other',
-  ].map((g) => ({ label: g, value: g }))
 
   const bookFormFields = (
     <div className="space-y-4">
@@ -585,29 +695,55 @@ export const BookManagement = () => {
           />
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {[
-            {
-              label: 'Total Books',
-              value: String(totalElements),
-              color: 'text-gray-900',
-            },
-            {
-              label: 'Available',
-              value: String(
-                books.filter((b) => (b.trueAvailableStock ?? 0) > 0).length
-              ),
-              color: 'text-green-600',
-            },
-          ].map(({ label, value, color }) => (
-            <div
-              key={label}
-              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
-            >
-              <p className="text-sm text-gray-500">{label}</p>
-              <p className={`mt-1 text-2xl font-semibold ${color}`}>{value}</p>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {(() => {
+            const issuedCount = allTx.filter(
+              (t) => t.status === 'issued' || t.status === 'overdue'
+            ).length
+            const totalCopies = reportData?.totalInventory ?? 0
+            const lostCount = reportData?.lostCount ?? 0
+            const availableCopies = Math.max(
+              0,
+              totalCopies - issuedCount - lostCount
+            )
+            return [
+              {
+                label: 'Total Books',
+                value: String(catalogTotal),
+                color: 'text-gray-900',
+                title: 'Unique titles in the catalog',
+              },
+              {
+                label: 'Available Copies',
+                value: totalCopies ? String(availableCopies) : '—',
+                color: 'text-green-600',
+                title: 'Copies on shelf across all books',
+              },
+              {
+                label: 'Currently Out',
+                value: String(issuedCount),
+                color: 'text-indigo-600',
+                title: 'Copies currently issued to members',
+              },
+              {
+                label: 'Lost Copies',
+                value: reportData !== null ? String(lostCount) : '—',
+                color: 'text-red-500',
+                title: 'Copies marked as lost',
+              },
+            ].map(({ label, value, color, title }) => (
+              <div
+                key={label}
+                title={title}
+                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+              >
+                <p className="text-sm text-gray-500">{label}</p>
+                <p className={`mt-1 text-2xl font-semibold ${color}`}>
+                  {value}
+                </p>
+              </div>
+            ))
+          })()}
         </div>
 
         <div className="flex gap-1 rounded-xl border border-gray-200 bg-gray-100 p-1">
@@ -639,30 +775,31 @@ export const BookManagement = () => {
               }
             >
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
-                <div className="sm:col-span-4">
+                <div className="sm:col-span-5">
                   <Input
                     placeholder="Search by title…"
                     type="search"
                     value={manSearch}
-                    onChange={(e) => setManSearch(e.target.value)}
+                    onChange={(e) => {
+                      setManSearch(e.target.value)
+                      handleSearchDebounced(e.target.value)
+                    }}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   />
                 </div>
-                <div className="sm:col-span-3">
+                <div className="sm:col-span-4">
                   <Select
                     placeholder="All Genres"
                     value={manFilterGenre}
-                    onChange={(e) => setManFilterGenre(e.target.value)}
+                    onChange={(e) => {
+                      setManFilterGenre(e.target.value)
+                      handleSearchDebounced(manSearch, e.target.value)
+                    }}
                     options={[
                       { label: 'All Genres', value: '' },
                       ...genreOptions,
                     ]}
                   />
-                </div>
-                <div className="sm:col-span-2">
-                  <Button className="w-full" onClick={handleSearch}>
-                    Search
-                  </Button>
                 </div>
                 <div className="sm:col-span-3">
                   <Button
@@ -1136,15 +1273,36 @@ export const BookManagement = () => {
                     }
                   />
                 </div>
-                {c.status === 'AVAILABLE' && (
-                  <Button
-                    variant="secondary"
-                    className="text-xs"
-                    onClick={() => handleMarkCopyLost(c)}
-                  >
-                    Mark Lost
-                  </Button>
-                )}
+                <div className="flex items-center gap-2">
+                  {c.status === 'AVAILABLE' && (
+                    <Button
+                      variant="secondary"
+                      className="text-xs"
+                      onClick={() => handleMarkCopyLost(c)}
+                    >
+                      Mark Lost
+                    </Button>
+                  )}
+                  {c.status === 'LOST' && (
+                    <Button
+                      variant="secondary"
+                      className="text-xs text-green-700 hover:bg-green-50"
+                      onClick={() => handleMarkCopyFound(c)}
+                    >
+                      Mark Found
+                    </Button>
+                  )}
+                  {c.status !== 'ISSUED' && (
+                    <Button
+                      variant="secondary"
+                      className="text-xs text-red-600 hover:bg-red-50"
+                      onClick={() => handleDeleteCopy(c)}
+                      disabled={deletingCopyId === c.copyId}
+                    >
+                      {deletingCopyId === c.copyId ? '…' : 'Delete'}
+                    </Button>
+                  )}
+                </div>
               </div>
             ))}
             {managedCopies.length === 0 && (

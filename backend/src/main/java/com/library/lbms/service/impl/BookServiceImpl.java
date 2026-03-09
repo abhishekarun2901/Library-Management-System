@@ -43,7 +43,7 @@ public class BookServiceImpl implements BookService {
     private final PublisherRepository publisherRepository;
     private final CategoryRepository categoryRepository;
     private final AuthorRepository authorRepository;
-    private final ReservationRepository reservationRepository; 
+    private final ReservationRepository reservationRepository;
 
     @Override
     public BookResponse createBook(CreateBookRequest request) {
@@ -83,7 +83,7 @@ public class BookServiceImpl implements BookService {
         Book book = Book.builder()
                 .bookId(UUID.randomUUID())
                 .title(request.getTitle())
-                .isbn(request.getIsbn()) 
+                .isbn(request.getIsbn())
                 .description(request.getDescription())
                 .publishDate(request.getPublishDate())
                 .createdAt(LocalDateTime.now())
@@ -91,16 +91,16 @@ public class BookServiceImpl implements BookService {
                 .publisher(publisher)
                 .authors(authors)
                 .categories(categories)
-                .copies(new HashSet<>()) // Ensure copies set is initialized
+                .copies(new HashSet<>())
                 .build();
 
         if (request.getNumberOfCopies() != null && request.getNumberOfCopies() > 0) {
             for (int i = 0; i < request.getNumberOfCopies(); i++) {
                 book.getCopies().add(Copy.builder()
-                .status(CopyStatus.AVAILABLE)
-                .book(book)
-                .build());
-                }
+                        .status(CopyStatus.AVAILABLE)
+                        .book(book)
+                        .build());
+            }
         }
 
         return mapToResponse(bookRepository.save(book));
@@ -117,7 +117,7 @@ public class BookServiceImpl implements BookService {
         if (StringUtils.hasText(request.getDescription())) book.setDescription(request.getDescription());
         if (request.getPublishDate() != null) book.setPublishDate(request.getPublishDate());
         if (request.getIsActive() != null) book.setIsActive(request.getIsActive());
-        
+
         if (StringUtils.hasText(request.getPublisherName())) {
             Publisher publisher = publisherRepository.findByName(request.getPublisherName())
                     .orElseGet(() -> publisherRepository.save(Publisher.builder()
@@ -158,9 +158,13 @@ public class BookServiceImpl implements BookService {
 
     @Override
     public Page<BookResponse> getAllBooks(String title, String isbn, String author, String category, Pageable pageable) {
-        Specification<Book> spec = BookSpecification.filterBooks(title, isbn, author, category);
-        return bookRepository.findAll(spec, pageable)
-        .map(this::mapToResponse);
+        return getAllBooks(title, isbn, author, category, null, pageable);
+    }
+
+    @Override
+    public Page<BookResponse> getAllBooks(String title, String isbn, String author, String category, String search, Pageable pageable) {
+        Specification<Book> spec = BookSpecification.filterBooks(title, isbn, author, category, search);
+        return bookRepository.findAll(spec, pageable).map(this::mapToResponse);
     }
 
     @Override
@@ -174,11 +178,10 @@ public class BookServiceImpl implements BookService {
     public void deleteBook(UUID id) {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Book not found"));
-        
-        // Requirement: Prevent deletion of books currently on loan
+
         boolean hasActiveLoans = book.getCopies().stream()
                 .anyMatch(copy -> CopyStatus.ISSUED.equals(copy.getStatus()));
-        
+
         if (hasActiveLoans) {
             throw new BadRequestException("Cannot delete book. One or more copies are currently on loan.");
         }
@@ -187,25 +190,16 @@ public class BookServiceImpl implements BookService {
         bookRepository.save(book);
     }
 
-    /**
-     * Maps Book entity to BookResponse DTO with real-time stock calculation
-     */
     private BookResponse mapToResponse(Book book) {
-        Set<String> authorNames = book.getAuthors() != null ? 
-            book.getAuthors().stream().map(Author::getName).collect(Collectors.toSet()) : new HashSet<>();
-            
-        Set<String> categoryNames = book.getCategories() != null ? 
-            book.getCategories().stream().map(Category::getName).collect(Collectors.toSet()) : new HashSet<>();
+        Set<String> authorNames = book.getAuthors() != null ?
+                book.getAuthors().stream().map(Author::getName).collect(Collectors.toSet()) : new HashSet<>();
 
-        // REAL-TIME STATUS LOGIC
-        // Total physical copies in system
+        Set<String> categoryNames = book.getCategories() != null ?
+                book.getCategories().stream().map(Category::getName).collect(Collectors.toSet()) : new HashSet<>();
+
         long totalCopies = book.getCopies().size();
-        
-        // Physical copies currently with users
         long issuedCopies = book.getCopies().stream()
                 .filter(c -> CopyStatus.ISSUED.equals(c.getStatus())).count();
-        
-        // Logical holds placed by users that are not yet fulfilled
         long activeHolds = reservationRepository.countByBook_BookIdAndStatus(book.getBookId(), "active");
 
         return BookResponse.builder()
@@ -218,7 +212,7 @@ public class BookServiceImpl implements BookService {
                 .authors(authorNames)
                 .publisher(book.getPublisher() != null ? book.getPublisher().getName() : null)
                 .isActive(book.getIsActive())
-                .trueAvailableStock(Math.max(0, totalCopies - issuedCopies - activeHolds)) // Injects real-time stock
+                .trueAvailableStock(Math.max(0, totalCopies - issuedCopies - activeHolds))
                 .build();
     }
 }

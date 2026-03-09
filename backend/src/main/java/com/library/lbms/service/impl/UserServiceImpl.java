@@ -124,6 +124,20 @@ public class UserServiceImpl implements UserService {
             target.setFullName(request.getFullName());
         }
 
+        if (request.getEmail() != null) {
+            String newEmail = request.getEmail().trim().toLowerCase();
+            boolean emailTaken = userRepository.existsByEmail(newEmail)
+                    && !target.getEmail().equalsIgnoreCase(newEmail);
+            if (emailTaken) {
+                throw new BadRequestException("Email already in use");
+            }
+            target.setEmail(newEmail);
+        }
+
+        if (request.getPassword() != null && !request.getPassword().isBlank()) {
+            target.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        }
+
         // Only admin can modify system flags
         if (admin) {
             if (request.getIsActive() != null) {

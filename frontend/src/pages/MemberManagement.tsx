@@ -68,6 +68,13 @@ export const MemberManagement = () => {
   const [deleteTarget, setDeleteTarget] = useState<UserResponse | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  const [isBlacklistOpen, setIsBlacklistOpen] = useState(false)
+  const [blacklistTarget, setBlacklistTarget] = useState<UserResponse | null>(
+    null
+  )
+  const [blacklistReasonInput, setBlacklistReasonInput] = useState('')
+  const [blacklisting, setBlacklisting] = useState(false)
+
   const loadMembers = (page: number) => {
     if (!token) return
     setLoading(true)
@@ -88,6 +95,13 @@ export const MemberManagement = () => {
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
     loadMembers(page)
+  }
+
+  /** Immediately updates a member in local state (optimistic UI). */
+  const patchMember = (userId: string, patch: Partial<UserResponse>) => {
+    setMembers((prev) =>
+      prev.map((m) => (m.userId === userId ? { ...m, ...patch } : m))
+    )
   }
 
   const handleAdd = async () => {
@@ -128,13 +142,17 @@ export const MemberManagement = () => {
         },
         token
       )
+      patchMember(editingMember.userId, {
+        fullName: editForm.name || editingMember.fullName,
+        isActive: editForm.isActive,
+        blacklistReason: editForm.blacklistReason || null,
+      })
       setShowSuccess(
         `Member "${editForm.name || editingMember.fullName}" updated successfully.`
       )
       setEditingMember(null)
       setEditForm(emptyEditForm)
       setIsEditOpen(false)
-      loadMembers(currentPage)
     } catch (e: unknown) {
       setShowSuccess(
         e instanceof Error ? e.message : 'Failed to update member.'
@@ -159,15 +177,97 @@ export const MemberManagement = () => {
     setIsDeleteOpen(true)
   }
 
+  const handleSetActive = async (member: UserResponse) => {
+    if (!token) return
+    patchMember(member.userId, { isActive: true, blacklistReason: null })
+    try {
+      await updateUser(
+        member.userId,
+        { isActive: true, blacklistReason: null },
+        token
+      )
+      setShowSuccess(`${member.fullName} is now Active.`)
+    } catch (e) {
+      patchMember(member.userId, {
+        isActive: member.isActive,
+        blacklistReason: member.blacklistReason,
+      })
+      setShowSuccess(
+        e instanceof Error ? e.message : 'Failed to update status.'
+      )
+    }
+  }
+
+  const handleSetInactive = async (member: UserResponse) => {
+    if (!token) return
+    patchMember(member.userId, { isActive: false, blacklistReason: null })
+    try {
+      await updateUser(
+        member.userId,
+        { isActive: false, blacklistReason: null },
+        token
+      )
+      setShowSuccess(`${member.fullName} is now Inactive.`)
+    } catch (e) {
+      patchMember(member.userId, {
+        isActive: member.isActive,
+        blacklistReason: member.blacklistReason,
+      })
+      setShowSuccess(
+        e instanceof Error ? e.message : 'Failed to update status.'
+      )
+    }
+  }
+
+  const openBlacklist = (member: UserResponse) => {
+    setBlacklistTarget(member)
+    setBlacklistReasonInput(member.blacklistReason ?? '')
+    setIsBlacklistOpen(true)
+  }
+
+  const handleBlacklist = async () => {
+    if (!token || !blacklistTarget) return
+    setBlacklisting(true)
+    const reason = blacklistReasonInput.trim() || 'Blacklisted by admin'
+    patchMember(blacklistTarget.userId, {
+      isActive: false,
+      blacklistReason: reason,
+    })
+    try {
+      await updateUser(
+        blacklistTarget.userId,
+        { isActive: false, blacklistReason: reason },
+        token
+      )
+      setShowSuccess(`${blacklistTarget.fullName} has been blacklisted.`)
+      setIsBlacklistOpen(false)
+      setBlacklistTarget(null)
+      setBlacklistReasonInput('')
+    } catch (e) {
+      patchMember(blacklistTarget.userId, {
+        isActive: blacklistTarget.isActive,
+        blacklistReason: blacklistTarget.blacklistReason,
+      })
+      setShowSuccess(
+        e instanceof Error ? e.message : 'Failed to blacklist member.'
+      )
+    } finally {
+      setBlacklisting(false)
+    }
+  }
+
   const handleDeleteMember = async () => {
     if (!token || !deleteTarget) return
     setDeleting(true)
     try {
       await deleteUser(deleteTarget.userId, token)
-      setShowSuccess(`Member "${deleteTarget.fullName}" has been deleted.`)
+      setMembers((prev) => prev.filter((m) => m.userId !== deleteTarget.userId))
+      setTotalElements((prev) => prev - 1)
+      setShowSuccess(
+        `Member "${deleteTarget.fullName}" has been permanently removed.`
+      )
       setIsDeleteOpen(false)
       setDeleteTarget(null)
-      loadMembers(currentPage)
     } catch (e: unknown) {
       setShowSuccess(
         e instanceof Error ? e.message : 'Failed to delete member.'
@@ -295,9 +395,9 @@ export const MemberManagement = () => {
               <Select
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                placeholder="All Statuses"
+                placeholder="All"
                 options={[
-                  { label: 'All Statuses', value: '' },
+                  { label: 'All', value: '' },
                   { label: 'Active', value: 'active' },
                   { label: 'Blacklisted', value: 'blacklisted' },
                   { label: 'Inactive', value: 'inactive' },
@@ -351,11 +451,37 @@ export const MemberManagement = () => {
                       : undefined
                   }
                   action={
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <Badge
                         label={status.charAt(0).toUpperCase() + status.slice(1)}
                         variant={statusBadgeVariant[status]}
                       />
+                      <div className="flex items-center gap-1">
+                        <button
+                          disabled={status === 'active'}
+                          onClick={() => handleSetActive(member)}
+                          title="Set Active"
+                          className="rounded-md border border-green-300 px-2 py-1 text-xs font-medium text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-35"
+                        >
+                          Activate
+                        </button>
+                        <button
+                          disabled={status === 'inactive'}
+                          onClick={() => handleSetInactive(member)}
+                          title="Set Inactive"
+                          className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
+                        >
+                          Deactivate
+                        </button>
+                        <button
+                          disabled={status === 'blacklisted'}
+                          onClick={() => openBlacklist(member)}
+                          title="Blacklist member"
+                          className="rounded-md border border-orange-300 px-2 py-1 text-xs font-medium text-orange-600 transition hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-35"
+                        >
+                          Blacklist
+                        </button>
+                      </div>
                       <Button
                         variant="secondary"
                         className="text-xs"
@@ -493,7 +619,49 @@ export const MemberManagement = () => {
         </div>
       </Modal>
 
-      {/* Delete Member Modal */}
+      {/* Blacklist Member Modal */}
+      <Modal
+        open={isBlacklistOpen}
+        title="Blacklist Member"
+        onClose={() => {
+          setIsBlacklistOpen(false)
+          setBlacklistTarget(null)
+          setBlacklistReasonInput('')
+        }}
+        primaryAction={
+          <Button
+            className="bg-orange-600 hover:bg-orange-700 focus:ring-orange-500"
+            onClick={handleBlacklist}
+            disabled={blacklisting}
+          >
+            {blacklisting ? 'Blacklisting…' : 'Confirm Blacklist'}
+          </Button>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            You are blacklisting{' '}
+            <span className="font-semibold text-gray-900">
+              {blacklistTarget?.fullName}
+            </span>
+            . Their account will be deactivated. Provide a reason below.
+          </p>
+          <FormField
+            label="Blacklist Reason"
+            htmlFor="blacklist-reason"
+            helperText="Defaults to 'Blacklisted by admin' if left blank"
+          >
+            <Input
+              id="blacklist-reason"
+              placeholder="e.g. Repeated overdue returns, damaged book…"
+              value={blacklistReasonInput}
+              onChange={(e) => setBlacklistReasonInput(e.target.value)}
+            />
+          </FormField>
+        </div>
+      </Modal>
+
+      {/* Delete Member Modal (Soft Delete) */}
       <Modal
         open={isDeleteOpen}
         title="Delete Member"
@@ -516,7 +684,8 @@ export const MemberManagement = () => {
           <span className="font-semibold text-gray-900">
             {deleteTarget?.fullName}
           </span>
-          ? This action cannot be undone.
+          ? This is a soft delete — the account will be removed from the system
+          and can only be restored directly in the database.
         </p>
       </Modal>
 
@@ -549,33 +718,59 @@ export const MemberManagement = () => {
             <FormField label="Account Status" htmlFor="edit-status">
               <Select
                 id="edit-status"
-                value={editForm.isActive ? 'active' : 'inactive'}
-                onChange={(e) =>
-                  setEditForm({
-                    ...editForm,
-                    isActive: e.target.value === 'active',
-                  })
+                value={
+                  editForm.isActive
+                    ? 'active'
+                    : editForm.blacklistReason
+                      ? 'blacklisted'
+                      : 'inactive'
                 }
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (v === 'active')
+                    setEditForm({
+                      ...editForm,
+                      isActive: true,
+                      blacklistReason: '',
+                    })
+                  else if (v === 'inactive')
+                    setEditForm({
+                      ...editForm,
+                      isActive: false,
+                      blacklistReason: '',
+                    })
+                  else setEditForm({ ...editForm, isActive: false })
+                }}
                 options={[
                   { label: 'Active', value: 'active' },
                   { label: 'Inactive', value: 'inactive' },
+                  { label: 'Blacklisted', value: 'blacklisted' },
                 ]}
               />
             </FormField>
-            <FormField
-              label="Blacklist Reason"
-              htmlFor="edit-blacklist"
-              helperText="Leave blank to remove from blacklist"
-            >
-              <Input
-                id="edit-blacklist"
-                placeholder="e.g. Overdue books, damage…"
-                value={editForm.blacklistReason}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, blacklistReason: e.target.value })
+            {!editForm.isActive && (
+              <FormField
+                label="Blacklist Reason"
+                htmlFor="edit-blacklist"
+                helperText={
+                  editForm.blacklistReason
+                    ? 'Clear this field to switch to plain inactive'
+                    : 'Enter a reason to mark as blacklisted'
                 }
-              />
-            </FormField>
+              >
+                <Input
+                  id="edit-blacklist"
+                  placeholder="e.g. Overdue books, damage…"
+                  value={editForm.blacklistReason}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      blacklistReason: e.target.value,
+                    })
+                  }
+                />
+              </FormField>
+            )}
           </div>
         ) : null}
       </Modal>

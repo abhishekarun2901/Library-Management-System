@@ -272,7 +272,7 @@ public class CopyServiceImpl implements CopyService {
                 .build();
     }
 
-    // DELETE COPY (SOFT DELETE VIA LOST)
+    // DELETE COPY
     @Override
     @Transactional
     public void deleteCopy(UUID copyId) {
@@ -287,11 +287,17 @@ public class CopyServiceImpl implements CopyService {
 
         if (hasActiveTransaction) {
             throw new BadRequestException(
-                    "Cannot delete copy with active transaction");
+                    "Cannot delete a copy that is currently issued.");
         }
 
-        copy.setStatus(CopyStatus.LOST);
-        copyRepository.save(copy);
+        boolean hasTransactionHistory = transactionRepository.existsByCopy_CopyId(copyId);
+
+        if (hasTransactionHistory) {
+            throw new BadRequestException(
+                    "This copy has transaction history and cannot be deleted. Use \"Mark Lost\" to retire it.");
+        }
+
+        copyRepository.delete(copy);
     }
 
 }

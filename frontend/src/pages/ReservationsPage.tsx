@@ -226,7 +226,7 @@ export const ReservationsPage = ({
             </div>
             <div className="sm:col-span-3">
               <Select
-                placeholder="All Statuses"
+                placeholder="All Status"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
                 options={[
@@ -314,17 +314,9 @@ export const ReservationsPage = ({
                           className="hover:bg-gray-50/60"
                         >
                           <td className="px-4 py-4">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-semibold text-gray-900">
-                                {res.bookTitle}
-                              </span>
-                              <Badge
-                                label={statusLabel[res.status] ?? res.status}
-                                variant={
-                                  statusBadgeVariant[res.status] ?? 'pending'
-                                }
-                              />
-                            </div>
+                            <span className="font-semibold text-gray-900">
+                              {res.bookTitle}
+                            </span>
                           </td>
                           <td className="whitespace-nowrap px-4 py-4 text-gray-700">
                             {fmtDate(res.reservedAt)}
@@ -336,9 +328,15 @@ export const ReservationsPage = ({
                           </td>
                           <td className="px-4 py-4">
                             <div className="flex flex-col items-start gap-2">
-                              {role === 'librarian' ? (
-                                <>
-                                  {res.status === 'active' && (
+                              <Badge
+                                label={statusLabel[res.status] ?? res.status}
+                                variant={
+                                  statusBadgeVariant[res.status] ?? 'pending'
+                                }
+                              />
+                              {res.status === 'active' && (
+                                <div className="flex items-center gap-2">
+                                  {role === 'librarian' && (
                                     <Button
                                       className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700"
                                       disabled={
@@ -349,21 +347,6 @@ export const ReservationsPage = ({
                                       Fulfill
                                     </Button>
                                   )}
-                                  {res.status === 'active' && (
-                                    <Button
-                                      className="px-3 py-1.5 text-xs"
-                                      variant="secondary"
-                                      disabled={
-                                        actionLoading === res.reservationId
-                                      }
-                                      onClick={() => openCancel(res)}
-                                    >
-                                      Cancel
-                                    </Button>
-                                  )}
-                                </>
-                              ) : (
-                                res.status === 'active' && (
                                   <Button
                                     className="px-3 py-1.5 text-xs"
                                     variant="secondary"
@@ -374,7 +357,7 @@ export const ReservationsPage = ({
                                   >
                                     Cancel
                                   </Button>
-                                )
+                                </div>
                               )}
                             </div>
                           </td>

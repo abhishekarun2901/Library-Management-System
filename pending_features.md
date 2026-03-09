@@ -239,7 +239,7 @@ com.library.lbms
 - "Edit" button on row → opens modal prefilled with book data
 - `updateBook(id, payload, token)` → `PATCH /v1/books/{id}` — partial update, only non-null fields applied
 - Backend: `BookServiceImpl.updateBook()` — re-links authors/publisher/categories if changed
-
+v
 **Delete Book (soft)**
 
 - "Delete" → confirm modal → `deleteBook(id, token)` → `DELETE /v1/books/{id}`
@@ -330,7 +330,7 @@ com.library.lbms
 - Backend: `UserController` scope `fines` → `UserServiceImpl.getCurrentUserFines()` → `fineRepository.findByUser_UserId(currentUserId)`
 - No `memberName` needed (member sees only their own fines)
 - "Pay Fine" triggers same `payFine(transactionId, token)` call
-
+member/activity#history
 **Fine creation (automatic)**
 
 - Overdue: triggered on return → `daysLate * $0.50` per day

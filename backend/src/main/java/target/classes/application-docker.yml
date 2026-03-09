@@ -4,16 +4,10 @@ spring:
     username: ${DATABASE_USER}
     password: ${DATABASE_PASSWORD}
     driver-class-name: org.postgresql.Driver
-  cache:
-    type: redis
-  data:
-    redis:
-      host: ${REDIS_HOST:localhost}
-      port: 6379
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: true
     open-in-view: false
     properties:
@@ -23,12 +17,3 @@ spring:
   sql:
     init:
       mode: never
-
-lbms:
-  cors:
-    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
-  fine:
-    perday: 2
-
-loki:
-  url: http://loki:3100/loki/api/v1/push

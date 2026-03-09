@@ -9,17 +9,21 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.library.lbms.dao.BookRepository;
+import com.library.lbms.dao.NotificationRepository;
 import com.library.lbms.dao.ReservationRepository;
 import com.library.lbms.dao.UserRepository;
 import com.library.lbms.dto.request.ReservationRequest;
 import com.library.lbms.dto.response.ReservationResponse;
 import com.library.lbms.entity.Book;
+import com.library.lbms.entity.Notification;
 import com.library.lbms.entity.Reservation;
 import com.library.lbms.entity.User;
 import com.library.lbms.entity.enums.CopyStatus;
@@ -40,6 +44,16 @@ public class ReservationServiceImpl implements ReservationService {
     private final ReservationRepository reservationRepository;
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
+    private final NotificationRepository notificationRepository;
+    private final CacheManager cacheManager; // Inject CacheManager
+
+    private void evictBookCache(UUID bookId) {
+        Cache bookCache = cacheManager.getCache("books");
+        if (bookCache != null) bookCache.evict(bookId);
+        
+        Cache catalogCache = cacheManager.getCache("bookCatalog");
+        if (catalogCache != null) catalogCache.clear();
+    }
 
     private User getAuthenticatedUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -89,7 +103,6 @@ public class ReservationServiceImpl implements ReservationService {
             throw new BadRequestException("Reservation failed: this book is no longer available in the catalog.");
         }
 
-        // AC-1: Reservation requires at least one AVAILABLE copy.
         boolean hasAvailableCopy = book.getCopies().stream()
                 .anyMatch(copy -> copy.getStatus() == CopyStatus.AVAILABLE);
 
@@ -97,22 +110,16 @@ public class ReservationServiceImpl implements ReservationService {
             throw new BadRequestException("No available copies for this book. Cannot create reservation.");
         }
 
-        // Max 3 active reservations per user
         long activeCount = reservationRepository.countByUser_UserIdAndStatus(user.getUserId(), "active");
         if (activeCount >= 3) {
             throw new BadRequestException("You have reached the maximum limit of 3 active reservations.");
         }
 
-        // Prevent duplicate active reservation for the same book
         if (reservationRepository.existsByUser_UserIdAndBook_BookIdAndStatus(
                 user.getUserId(), book.getBookId(), "active")) {
             throw new BadRequestException("You already have an active reservation for this book.");
         }
 
-        // AC-2: pickupDate handling.
-        // When pickupDate is provided: reserved_at = pickupDate - 1 day (so the
-        // hold activates just-in-time), expires_at = pickupDate + 1 day (2-day
-        // collection window). When absent: immediate 24-hour reservation.
         LocalDate pickupDate = request.getPickupDate();
         LocalDateTime reservedAt;
         LocalDateTime expiresAt;
@@ -138,6 +145,17 @@ public class ReservationServiceImpl implements ReservationService {
                 .build();
 
         Reservation saved = reservationRepository.save(reservation);
+
+        notificationRepository.save(Notification.builder()
+                .notificationId(UUID.randomUUID())
+                .user(user)
+                .message("Your reservation for \"" + book.getTitle() + "\" is confirmed.")
+                .type("RESERVATION_CONFIRMED")
+                .isRead(false)
+                .createdAt(LocalDateTime.now())
+                .build());
+
+        evictBookCache(book.getBookId()); // Invalidate Cache
         return mapToResponse(saved);
     }
 
@@ -177,6 +195,7 @@ public class ReservationServiceImpl implements ReservationService {
 
         reservation.setStatus("cancelled");
         reservationRepository.save(reservation);
+        evictBookCache(reservation.getBook().getBookId()); // Invalidate Cache
     }
 
     @Override
@@ -192,14 +211,14 @@ public class ReservationServiceImpl implements ReservationService {
 
         reservation.setStatus(normalizeStatus(status));
         reservationRepository.save(reservation);
-
+        
+        evictBookCache(reservation.getBook().getBookId()); // Invalidate Cache
         return mapToResponse(reservation);
     }
 
     // ── Mapper ────────────────────────────────────────────────────────────────
 
     private ReservationResponse mapToResponse(Reservation reservation) {
-        // Compute queue position among active reservations for this book (FIFO)
         Integer queuePosition = null;
         if ("active".equals(reservation.getStatus())) {
             List<Reservation> queue = reservationRepository
@@ -216,12 +235,9 @@ public class ReservationServiceImpl implements ReservationService {
                     .orElse(null);
         }
 
-        // Derive pickupDate from expiresAt when it was a scheduled reservation
-        // (expiresAt is always set to pickupDate + 1 day for scheduled ones)
         LocalDate pickupDate = null;
         if (reservation.getExpiresAt() != null) {
             LocalDate expiryDate = reservation.getExpiresAt().toLocalDate();
-            // Heuristic: if expiresAt - reservedAt > 25 hours it was a scheduled reservation
             long hoursBetween = java.time.Duration.between(
                     reservation.getReservedAt(), reservation.getExpiresAt()).toHours();
             if (hoursBetween > 25) {
@@ -242,4 +258,3 @@ public class ReservationServiceImpl implements ReservationService {
                 .build();
     }
 }
-

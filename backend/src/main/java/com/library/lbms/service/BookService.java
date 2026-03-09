@@ -13,6 +13,8 @@ public interface BookService {
     BookResponse createBook(CreateBookRequest request);
     
     Page<BookResponse> getAllBooks(String title, String isbn, String author, String category, Pageable pageable);
+
+    Page<BookResponse> getAllBooks(String title, String isbn, String author, String category, String search, Pageable pageable);
     
     BookResponse getBookById(UUID id);
     BookResponse updateBook(UUID id, UpdateBookRequest request);

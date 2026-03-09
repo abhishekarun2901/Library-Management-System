@@ -12,7 +12,6 @@ import {
   FinesPaymentsPage,
   MyActivityPage,
   ReportsPage,
-  LibrarianProfilePage,
 } from './pages'
 import { ProtectedRoute } from './components/router/ProtectedRoute'
 
@@ -50,7 +49,6 @@ function App() {
             element={<FinesPaymentsPage role="librarian" />}
           />
           <Route path="/librarian/reports" element={<ReportsPage />} />
-          <Route path="/librarian/profile" element={<LibrarianProfilePage />} />
         </Route>
       </Routes>
     </BrowserRouter>

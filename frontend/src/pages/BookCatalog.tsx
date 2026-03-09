@@ -44,6 +44,9 @@ export const BookCatalog = ({ role = 'member' }: BookCatalogProps) => {
   const [reserveSuccess, setReserveSuccess] = useState<string | null>(null)
   const [reserveError, setReserveError] = useState<string | null>(null)
   const [myActiveBookIds, setMyActiveBookIds] = useState<Set<string>>(new Set())
+  const [genreOptions, setGenreOptions] = useState<
+    { label: string; value: string }[]
+  >([])
 
   useEffect(() => {
     if (!token) return
@@ -65,14 +68,14 @@ export const BookCatalog = ({ role = 'member' }: BookCatalogProps) => {
 
   const fetchBooks = (
     page: number,
-    title = searchInput,
+    search = searchInput,
     category = filterGenre,
     sort = sortBy
   ) => {
     setLoading(true)
     getBooks(
       {
-        title: title || undefined,
+        search: search || undefined,
         category: category || undefined,
         page: page - 1,
         size: ITEMS_PER_PAGE,
@@ -91,6 +94,19 @@ export const BookCatalog = ({ role = 'member' }: BookCatalogProps) => {
 
   useEffect(() => {
     fetchBooks(1)
+  }, [token])
+
+  useEffect(() => {
+    getBooks({ page: 0, size: 1000 }, token ?? undefined)
+      .then((data) => {
+        const cats = Array.from(
+          new Set(data.content.flatMap((b) => b.categories ?? []))
+        )
+          .sort()
+          .map((c) => ({ label: c, value: c }))
+        setGenreOptions(cats)
+      })
+      .catch(console.error)
   }, [token])
 
   const handleSearch = () => {
@@ -153,18 +169,6 @@ export const BookCatalog = ({ role = 'member' }: BookCatalogProps) => {
     pages.push(totalPages)
     return pages
   }
-
-  const genreOptions = [
-    'Fiction',
-    'Science',
-    'Computer Science',
-    'Software Engineering',
-    'History',
-    'Philosophy',
-    'Biography',
-    'Technology',
-    'Other',
-  ].map((g) => ({ label: g, value: g }))
 
   return (
     <AppLayout sidebarItems={sidebarItems} topbarTitle={topbarTitle}>

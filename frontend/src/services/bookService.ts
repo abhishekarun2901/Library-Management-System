@@ -64,6 +64,7 @@ export const getBooks = (
     author?: string
     isbn?: string
     category?: string
+    search?: string
     page?: number
     size?: number
     sortBy?: string
@@ -75,6 +76,7 @@ export const getBooks = (
   if (params.author) q.set('author', params.author)
   if (params.isbn) q.set('isbn', params.isbn)
   if (params.category) q.set('category', params.category)
+  if (params.search) q.set('search', params.search)
   q.set('page', String(params.page ?? 0))
   q.set('size', String(params.size ?? 12))
   if (params.sortBy) q.set('sortBy', params.sortBy)
@@ -122,3 +124,6 @@ export const updateCopyStatus = (
     { method: 'PATCH', body: JSON.stringify({ status }) },
     token
   )
+
+export const deleteCopy = (copyId: string, token: string) =>
+  apiFetch<void>(`/v1/copies/${copyId}`, { method: 'DELETE' }, token)

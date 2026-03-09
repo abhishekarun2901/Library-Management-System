@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -47,6 +49,15 @@ public class TransactionServiceImpl implements TransactionService {
     private final FineRepository fineRepository;
     private final ReservationRepository reservationRepository;
     private final NotificationRepository notificationRepository;
+    private final CacheManager cacheManager; // Inject CacheManager
+
+    private void evictBookCache(UUID bookId) {
+        Cache bookCache = cacheManager.getCache("books");
+        if (bookCache != null) bookCache.evict(bookId);
+        
+        Cache catalogCache = cacheManager.getCache("bookCatalog");
+        if (catalogCache != null) catalogCache.clear();
+    }
 
     private User getAuthenticatedUser() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -78,7 +89,6 @@ public class TransactionServiceImpl implements TransactionService {
                 .toList();
     }
 
-    // ISSUE BOOK
     @Override
     @Transactional
     public TransactionResponse issueBook(TransactionRequest request) {
@@ -150,11 +160,12 @@ public class TransactionServiceImpl implements TransactionService {
                 .build();
 
         user.setUpdatedAt(LocalDateTime.now());
-
-        return mapToResponse(transactionRepository.save(tx));
+        Transaction savedTx = transactionRepository.save(tx);
+        
+        evictBookCache(copy.getBook().getBookId()); // Invalidate Cache
+        return mapToResponse(savedTx);
     }
 
-    // UPDATE (Return)
     @Override
     @Transactional
     public TransactionResponse updateTransaction(UUID transactionId, TransactionRequest request) {
@@ -196,8 +207,10 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         tx.getUser().setUpdatedAt(now);
-
-        return mapToResponse(transactionRepository.save(tx));
+        Transaction savedTx = transactionRepository.save(tx);
+        
+        evictBookCache(tx.getCopy().getBook().getBookId()); // Invalidate Cache
+        return mapToResponse(savedTx);
     }
 
     private void applyOverdueFineIfNeeded(Transaction tx, LocalDateTime returnTime) {

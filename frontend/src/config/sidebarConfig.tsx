@@ -7,8 +7,8 @@ import {
   SidebarIconFines,
   SidebarIconActivity,
   SidebarIconReports,
-  SidebarIconProfile,
 } from '../components/navigation/Sidebar'
+import { User } from 'lucide-react'
 
 export const librarianSidebarItems = [
   {
@@ -47,12 +47,6 @@ export const librarianSidebarItems = [
     href: '/librarian/reports',
     icon: <SidebarIconReports />,
   },
-  {
-    id: 'profile',
-    label: 'My Profile',
-    href: '/librarian/profile',
-    icon: <SidebarIconProfile />,
-  },
 ]
 
 export const memberSidebarItems = [
@@ -73,5 +67,11 @@ export const memberSidebarItems = [
     label: 'My Activity',
     href: '/member/activity',
     icon: <SidebarIconActivity />,
+  },
+  {
+    id: 'profile',
+    label: 'My Profile',
+    href: '/member/profile',
+    icon: <User className="h-5 w-5" />,
   },
 ]

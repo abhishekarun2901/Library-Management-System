@@ -46,15 +46,14 @@ public class BookController {
             @RequestParam(required = false) String author,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String categories,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "100") int size,
             @RequestParam(defaultValue = "title") String sortBy
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(sortBy).ascending());
-        String categoryFilter = StringUtils.hasText(categories)
-                ? categories
-                : category;
-        return ResponseEntity.ok(bookService.getAllBooks(title, isbn, author, categoryFilter, pageable));
+        String categoryFilter = StringUtils.hasText(categories) ? categories : category;
+        return ResponseEntity.ok(bookService.getAllBooks(title, isbn, author, categoryFilter, search, pageable));
     }
 
     @GetMapping("/{id}")

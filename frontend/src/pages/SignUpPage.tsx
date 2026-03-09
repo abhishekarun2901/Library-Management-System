@@ -1,8 +1,9 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { BookOpen, CheckCircle2 } from "lucide-react"
-import { Button, Checkbox, Input, Select } from "../components/ui"
+import { BookOpen, CheckCircle2, Eye, EyeOff } from "lucide-react"
+import { Button, Input } from "../components/ui"
 import { FormField } from "../components/composite"
+import { registerPublic } from "../services/authService"
 
 const features = [
   "Access the complete book catalog instantly",
@@ -17,10 +18,12 @@ export const SignUpPage = () => {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "",
   })
-  const [agreed, setAgreed] = useState(false)
+
   const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const setField =
     (field: keyof typeof formData) =>
@@ -29,8 +32,8 @@ export const SignUpPage = () => {
       setError("")
     }
 
-  const handleCreate = () => {
-    if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword || !formData.role) {
+  const handleCreate = async () => {
+    if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
       setError("Please fill in all required fields.")
       return
     }
@@ -38,11 +41,21 @@ export const SignUpPage = () => {
       setError("Passwords do not match.")
       return
     }
-    if (!agreed) {
-      setError("Please agree to the Terms of Service.")
-      return
+    
+    setLoading(true)
+    setError("")
+    try {
+      await registerPublic({
+        email: formData.email.trim(),
+        password: formData.password,
+        fullName: formData.fullName.trim(),
+      })
+      navigate("/login", { state: { registered: true } })
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Registration failed. Please try again.")
+    } finally {
+      setLoading(false)
     }
-    navigate("/login")
   }
 
   return (
@@ -131,48 +144,51 @@ export const SignUpPage = () => {
             </FormField>
 
             <FormField label="Password" htmlFor="password" required>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Create a strong password"
-                value={formData.password}
-                onChange={setField("password")}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Create a strong password"
+                  value={formData.password}
+                  onChange={setField("password")}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+                  tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </FormField>
 
             <FormField label="Confirm Password" htmlFor="confirmPassword" required>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Confirm your password"
-                value={formData.confirmPassword}
-                onChange={setField("confirmPassword")}
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Confirm your password"
+                  value={formData.confirmPassword}
+                  onChange={setField("confirmPassword")}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600 focus:outline-none"
+                  tabIndex={-1}
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </FormField>
 
-            <FormField label="Role" htmlFor="role" required>
-              <Select
-                id="role"
-                placeholder="Select a role"
-                value={formData.role}
-                onChange={(e) => { setFormData((prev) => ({ ...prev, role: e.target.value })); setError("") }}
-                options={[
-                  { label: "Librarian", value: "librarian" },
-                  { label: "Member", value: "member" },
-                ]}
-              />
-            </FormField>
-
-            <div className="flex items-start gap-3 pt-1">
-              <Checkbox
-                label="I agree to the Terms of Service and Privacy Policy"
-                checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-              />
-            </div>
-
-            <Button className="w-full" onClick={handleCreate}>
-              Create Account
+            <Button className="w-full" onClick={handleCreate} disabled={loading}>
+              {loading ? "Creating account…" : "Create Account"}
             </Button>
           </div>
 

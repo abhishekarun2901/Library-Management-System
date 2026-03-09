@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import {
   Button,
@@ -173,9 +174,11 @@ export const LibrarianDashboard = () => {
                   )}
                 </CardContent>
                 <CardFooter>
-                  <Button variant="secondary" className="w-full">
-                    View All Transactions
-                  </Button>
+                  <Link to="/librarian/reports#transactions" className="w-full">
+                    <Button variant="secondary" className="w-full">
+                      View All Transactions
+                    </Button>
+                  </Link>
                 </CardFooter>
               </Card>
 

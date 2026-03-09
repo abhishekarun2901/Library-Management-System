@@ -173,7 +173,7 @@ export const FinesPaymentsPage = ({
             </div>
             <div className="sm:col-span-3">
               <Select
-                placeholder="All Statuses"
+                placeholder="All"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
                 options={[

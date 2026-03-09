@@ -11,6 +11,7 @@ import com.library.lbms.dao.CopyRepository;
 import com.library.lbms.dao.FineRepository;
 import com.library.lbms.dao.TransactionRepository;
 import com.library.lbms.dto.response.ReportResponse;
+import com.library.lbms.entity.enums.CopyStatus;
 import com.library.lbms.entity.enums.TransactionStatus;
 import com.library.lbms.service.ReportService;
 
@@ -49,7 +50,7 @@ public class ReportServiceImpl implements ReportService {
         BigDecimal outstanding = fineRepository.sumOutstandingFines();
 
         long overdueCount = transactionRepository.countByStatus(TransactionStatus.overdue);
-        long lostCount = transactionRepository.countByStatus(TransactionStatus.lost);
+        long lostCount = copyRepository.countByStatus(CopyStatus.LOST);
 
         return ReportResponse.builder()
                 .totalInventory(copyRepository.count())

@@ -26,6 +26,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     env_file:
       - .env
     environment:
@@ -36,6 +38,7 @@ services:
       DATABASE_USER: ${POSTGRES_USER}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
       APPLICATION_SECURITY_JWT_SECRET_KEY: ${JWT_SECRET}
+      REDIS_HOST: redis
 
   frontend:
     build: ./frontend
@@ -51,6 +54,43 @@ services:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
       - ./frontend/index.html:/app/index.html
+  redis:
+    image: redis:7-alpine
+    container_name: library_redis
+    ports:
+      - "6379:6379"
+    restart: always
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: library_pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@lbms.com    # Login email for pgAdmin UI
+      PGADMIN_DEFAULT_PASSWORD: admin          # Login password for pgAdmin UI
+    ports:
+      - "5050:80"                              # Maps localhost:5050 to container port 80
+    depends_on:
+      - db
+
+  loki:
+    image: grafana/loki:latest
+    container_name: lbms-loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: always
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: lbms-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin     # Login username for Grafana
+      - GF_SECURITY_ADMIN_PASSWORD=admin # Login password for Grafana
+    depends_on:
+      - loki
+    restart: always
 
 volumes:
   library_postgres_data:

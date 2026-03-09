@@ -45,6 +45,8 @@ export type FineResponse = {
 
 export type UpdateUserPayload = {
   fullName?: string
+  email?: string
+  password?: string
   isActive?: boolean
   blacklistReason?: string | null
 }

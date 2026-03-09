@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { BookOpen, CheckCircle2, Eye, EyeOff } from 'lucide-react'
 import { Button, Checkbox, Input } from '../components/ui'
 import { FormField } from '../components/composite'
@@ -12,6 +12,10 @@ const features = [
 ]
 
 export const LoginPage = () => {
+  const location = useLocation()
+  const registered =
+    (location.state as { registered?: boolean } | null)?.registered === true
+
   const {
     email,
     setEmail,
@@ -94,6 +98,13 @@ export const LoginPage = () => {
               Sign in to your library account
             </p>
           </div>
+
+          {/* Registration success */}
+          {registered ? (
+            <div className="mb-6 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-700 ring-1 ring-emerald-200">
+              Account created! You can now sign in.
+            </div>
+          ) : null}
 
           {/* Error */}
           {error ? (
