@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import {
   HomePage,
   LoginPage,
@@ -11,7 +11,6 @@ import {
   ReservationsPage,
   FinesPaymentsPage,
   MyActivityPage,
-  ProfilePage,
   ReportsPage,
   LibrarianProfilePage,
 } from './pages'
@@ -31,7 +30,10 @@ function App() {
           <Route path="/member" element={<MemberDashboard />} />
           <Route path="/member/catalog" element={<BookCatalog />} />
           <Route path="/member/activity" element={<MyActivityPage />} />
-          <Route path="/member/profile" element={<ProfilePage />} />
+          <Route
+            path="/member/profile"
+            element={<Navigate to="/member" replace />}
+          />
         </Route>
 
         {/* Admin (librarian) routes */}

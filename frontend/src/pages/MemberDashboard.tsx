@@ -1,12 +1,22 @@
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/authStore'
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
-import { Button, Input } from '../components/ui'
+import { Input } from '../components/ui'
 import { AppLayout, PageHeader } from '../components/layout'
 import { StatCard } from '../components/composite'
 import { memberSidebarItems as sidebarItems } from '../config/sidebarConfig'
-import { Calendar, Check, Mail, Pencil, User, X } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import {
+  BookOpen,
+  CreditCard,
+  Calendar,
+  Check,
+  Mail,
+  Pencil,
+  User,
+  X,
+  BookMarked,
+} from 'lucide-react'
 import styles from '../styles/responsive.module.css'
 import {
   getUserHistory,
@@ -14,15 +24,9 @@ import {
   getCurrentUser,
   updateUser,
 } from '../services/userService'
-import {
-  getNotifications,
-  markNotificationRead,
-  type NotificationResponse,
-} from '../services/notificationService'
-import {
-  getTransactions,
-  type TransactionResponse,
-} from '../services/transactionService'
+import { getReservations } from '../services/reservationService'
+import { getTransactions } from '../services/transactionService'
+import QuoteCard from '../components/composite/QuoteCard'
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -105,32 +109,32 @@ export const MemberDashboard = () => {
   const [totalBorrowed, setTotalBorrowed] = useState<number | null>(null)
   const [activeLoans, setActiveLoans] = useState<number | null>(null)
   const [outstandingFines, setOutstandingFines] = useState<number | null>(null)
-  const [notifications, setNotifications] = useState<NotificationResponse[]>([])
-  const [overdueLoans, setOverdueLoans] = useState<TransactionResponse[]>([])
+  const [activeReservations, setActiveReservations] = useState<number | null>(
+    null
+  )
 
   useEffect(() => {
     if (!token) return
     Promise.all([
       getUserHistory(token),
       getUserFines(token),
-      getNotifications(token),
+      getReservations(token),
       getTransactions(token),
       getCurrentUser(token),
     ])
-      .then(([history, fines, notifs, txs, me]) => {
+      .then(([history, fines, reservations, txs, me]) => {
         setUserId(me.userId)
         setTotalBorrowed(history.length)
         const active = txs.filter(
           (t) => t.status === 'issued' || t.status === 'overdue'
         )
         setActiveLoans(active.length)
-        const overdue = txs.filter((t) => t.status === 'overdue')
-        setOverdueLoans(overdue)
         const unpaid = fines
           .filter((f) => !f.paid)
           .reduce((s, f) => s + (f.amount ?? 0), 0)
         setOutstandingFines(unpaid)
-        setNotifications(notifs.filter((n) => !n.isRead))
+        const activeRes = reservations.filter((r) => r.status === 'active')
+        setActiveReservations(activeRes.length)
       })
       .catch(console.error)
   }, [token])
@@ -161,16 +165,6 @@ export const MemberDashboard = () => {
   const handleCancel = () => {
     setDraft(profile)
     setIsEditing(false)
-  }
-
-  const handleMarkRead = async (id: string) => {
-    if (!token) return
-    try {
-      await markNotificationRead(id, token)
-      setNotifications((prev) => prev.filter((n) => n.notificationId !== id))
-    } catch {
-      // silently ignore
-    }
   }
 
   const initials = profile.name
@@ -298,6 +292,9 @@ export const MemberDashboard = () => {
           )}
         </div>
 
+        {/* Quote of the day */}
+        <QuoteCard />
+
         {/* 3 ── Stats */}
         <div
           className={`grid grid-cols-2 gap-4 lg:grid-cols-4 ${styles.statsGrid}`}
@@ -318,83 +315,67 @@ export const MemberDashboard = () => {
                 : '—'
             }
           />
+          <StatCard
+            label="Active Reservations"
+            value={
+              activeReservations !== null ? String(activeReservations) : '—'
+            }
+          />
         </div>
 
-        {/* 4 ── Notifications & Alerts */}
+        {/* 4 ── Quick Actions */}
         <div>
           <p className="mb-3 text-sm font-semibold text-gray-700">
-            Notifications &amp; Alerts
+            Quick Actions
           </p>
-          {overdueLoans.length === 0 && notifications.length === 0 ? (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-800">
-              ✓ No outstanding alerts — your account is in good standing.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {overdueLoans.map((loan) => (
-                <div
-                  key={loan.transactionId}
-                  className="overflow-hidden rounded-2xl border border-red-200 bg-white shadow-sm"
-                >
-                  <div className="flex items-center gap-2 border-b border-red-100 bg-red-50 px-5 py-4">
-                    <span className="h-2 w-2 rounded-full bg-red-500" />
-                    <p className="text-sm font-semibold text-red-800">
-                      Overdue Book
-                    </p>
-                  </div>
-                  <div className="px-5 py-4">
-                    <p className="text-sm font-semibold text-gray-900">
-                      {loan.bookTitle ?? 'Unknown'}
-                    </p>
-                    {loan.due_date && (
-                      <div className="mt-3 flex items-center justify-between rounded-lg bg-red-50 px-3 py-2 text-xs">
-                        <span className="text-red-600">
-                          Due{' '}
-                          {new Date(loan.due_date).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            year: 'numeric',
-                          })}
-                        </span>
-                        {loan.estimatedFine != null &&
-                          loan.estimatedFine > 0 && (
-                            <span className="font-semibold text-red-700">
-                              ${Number(loan.estimatedFine).toFixed(2)} fine
-                            </span>
-                          )}
-                      </div>
-                    )}
-                    <Link to="/member/activity">
-                      <Button
-                        variant="secondary"
-                        className="mt-3 w-full text-xs"
-                      >
-                        View Details
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              ))}
-              {notifications.map((n) => (
-                <div
-                  key={n.notificationId}
-                  className="overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => handleMarkRead(n.notificationId)}
-                  role="button"
-                  title="Click to mark as read"
-                >
-                  <div className="flex items-center gap-2 border-b border-indigo-100 bg-indigo-50 px-5 py-4">
-                    <p className="text-sm font-semibold text-indigo-800 capitalize">
-                      {n.type}
-                    </p>
-                  </div>
-                  <div className="px-5 py-4">
-                    <p className="text-sm text-gray-900">{n.message}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Link
+              to="/member/catalog"
+              className="group flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-indigo-300 hover:shadow-md"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 transition group-hover:bg-indigo-100">
+                <BookOpen className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">
+                  Browse Catalog
+                </p>
+                <p className="text-xs text-gray-500">
+                  Find &amp; reserve books
+                </p>
+              </div>
+            </Link>
+
+            <Link
+              to="/member/activity#reservations"
+              className="group flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-indigo-300 hover:shadow-md"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600 transition group-hover:bg-violet-100">
+                <BookMarked className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">
+                  My Reservations
+                </p>
+                <p className="text-xs text-gray-500">
+                  View active reservations
+                </p>
+              </div>
+            </Link>
+
+            <Link
+              to="/member/activity#fines"
+              className="group flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-sm transition hover:border-indigo-300 hover:shadow-md"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 transition group-hover:bg-amber-100">
+                <CreditCard className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">My Fines</p>
+                <p className="text-xs text-gray-500">Check outstanding fines</p>
+              </div>
+            </Link>
+          </div>
         </div>
       </div>
     </AppLayout>

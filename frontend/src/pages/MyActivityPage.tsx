@@ -67,7 +67,16 @@ const EmptyState = ({ message }: { message: string }) => (
 
 export const MyActivityPage = () => {
   const { token } = useAuthStore()
-  const [activeTab, setActiveTab] = useState<Tab>('loans')
+  const validTabs: Tab[] = ['loans', 'reservations', 'fines', 'history']
+  const hashTab = window.location.hash.replace('#', '') as Tab
+  const [activeTab, setActiveTab] = useState<Tab>(
+    validTabs.includes(hashTab) ? hashTab : 'loans'
+  )
+
+  const switchTab = (tab: Tab) => {
+    setActiveTab(tab)
+    window.location.hash = tab
+  }
   const [transactions, setTransactions] = useState<TransactionResponse[]>([])
   const [reservationsList, setReservationsList] = useState<
     ReservationResponse[]
@@ -125,7 +134,7 @@ export const MyActivityPage = () => {
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => switchTab(tab.id)}
                 className={`flex items-center gap-1.5 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors focus:outline-none ${
                   activeTab === tab.id
                     ? 'border-indigo-600 text-indigo-600'

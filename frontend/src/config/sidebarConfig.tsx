@@ -74,10 +74,4 @@ export const memberSidebarItems = [
     href: '/member/activity',
     icon: <SidebarIconActivity />,
   },
-  {
-    id: 'profile',
-    label: 'My Profile',
-    href: '/member/profile',
-    icon: <SidebarIconProfile />,
-  },
 ]
