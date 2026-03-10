@@ -15,6 +15,7 @@ import lombok.Data;
 public class ReservationResponse {
     private UUID reservationId;
     private UUID userId;
+    private String memberName;
     private UUID bookId;
     private String bookTitle;
     private LocalDateTime reservedAt;

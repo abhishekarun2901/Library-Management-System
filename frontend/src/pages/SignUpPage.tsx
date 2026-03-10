@@ -29,7 +29,7 @@ export const SignUpPage = () => {
     (field: keyof typeof formData) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       setFormData((prev) => ({ ...prev, [field]: e.target.value }))
-      setError("")
+      setError("") 
     }
 
   const handleCreate = async () => {

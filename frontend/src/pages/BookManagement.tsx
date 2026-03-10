@@ -676,7 +676,7 @@ export const BookManagement = () => {
 
   return (
     <AppLayout sidebarItems={sidebarItems} topbarTitle="Books">
-      <div className="w-full space-y-6 p-6 pb-10">
+      <div className="w-full space-y-6 p-4 pb-10 sm:p-6">
         <PageHeader
           title="Books"
           description="Browse the catalog, manage inventory, and issue books to members"
@@ -826,7 +826,7 @@ export const BookManagement = () => {
                     subtitle={`${book.authors?.join(', ') ?? '—'} · ${book.categories?.join(', ') ?? '—'}`}
                     meta={`${book.trueAvailableStock ?? 0} available copies · ${book.publisher ?? ''}`}
                     action={
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Badge
                           label={
                             (book.trueAvailableStock ?? 0) > 0

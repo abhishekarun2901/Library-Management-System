@@ -74,14 +74,17 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<TransactionResponse> getAllTransactions() {
         return transactionRepository.findAll()
                 .stream()
+                .filter(t -> t.getUser() != null && t.getUser().getRole() == UserRole.member)
                 .map(this::mapToResponse)
                 .toList();
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<TransactionResponse> getUserTransactions(UUID userId) {
         return transactionRepository.findByUser_UserId(userId)
                 .stream()
@@ -298,9 +301,17 @@ public class TransactionServiceImpl implements TransactionService {
     private TransactionResponse mapToResponse(Transaction t) {
         String title = null;
         try { title = t.getCopy().getBook().getTitle(); } catch (Exception ignored) {}
+        String memberName = null;
+        try { memberName = t.getUser().getFullName(); } catch (Exception ignored) {}
+        Boolean finePaid = null;
+        try {
+            Optional<Fine> fine = fineRepository.findByTransaction_TransactionId(t.getTransactionId());
+            if (fine.isPresent()) finePaid = fine.get().getPaid();
+        } catch (Exception ignored) {}
         return TransactionResponse.builder()
                 .transactionId(t.getTransactionId())
                 .user_id(t.getUser().getUserId())
+                .memberName(memberName)
                 .copy_id(t.getCopy().getCopyId())
                 .bookTitle(title)
                 .checkout_date(t.getIssueDate())
@@ -308,6 +319,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .return_date(t.getReturnDate())
                 .status(t.getStatus().name())
                 .estimatedFine(null)
+                .finePaid(finePaid)
                 .build();
     }
 }

@@ -12,6 +12,7 @@ import lombok.Data;
 public class TransactionResponse {
     private UUID transactionId;
     private UUID user_id;
+    private String memberName;
     private UUID copy_id;
     private String bookTitle;
     private LocalDateTime checkout_date;
@@ -19,4 +20,5 @@ public class TransactionResponse {
     private LocalDateTime return_date;
     private String status;
     private BigDecimal estimatedFine;
+    private Boolean finePaid;
 }

@@ -5,6 +5,7 @@ import { apiFetch } from '../lib/apiClient'
 export type ReservationResponse = {
   reservationId: string
   userId: string
+  memberName: string | null
   bookId: string
   bookTitle: string
   reservedAt: string

@@ -67,7 +67,11 @@ export const ReservationsPage = ({
   useEffect(() => {
     if (!token) return
     getReservations(token)
-      .then(setReservations)
+      .then((data) =>
+        setReservations(
+          [...data].sort((a, b) => b.reservedAt.localeCompare(a.reservedAt))
+        )
+      )
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [token])
@@ -291,6 +295,11 @@ export const ReservationsPage = ({
                       <th className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
                         Book
                       </th>
+                      {role === 'librarian' && (
+                        <th className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          Member
+                        </th>
+                      )}
                       <th className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
                         Reserved On
                       </th>
@@ -318,6 +327,13 @@ export const ReservationsPage = ({
                               {res.bookTitle}
                             </span>
                           </td>
+                          {role === 'librarian' && (
+                            <td className="whitespace-nowrap px-4 py-4">
+                              <span className="text-gray-800">
+                                {res.memberName ?? '—'}
+                              </span>
+                            </td>
+                          )}
                           <td className="whitespace-nowrap px-4 py-4 text-gray-700">
                             {fmtDate(res.reservedAt)}
                           </td>

@@ -13,7 +13,7 @@ const defaultItems = [
   { id: "reservations", label: "Reservations" },
   { id: "members", label: "Member Management" },
   { id: "books", label: "Book Management" },
-  { id: "fines", label: "Fines & Payments" }
+  { id: "fines", label: "Fines" }
 ]
 
 export const DashboardLayout = ({ children }: DashboardLayoutProps) => {

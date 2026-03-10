@@ -17,12 +17,11 @@ import {
 } from '../services/fineService'
 import {
   BarChart2,
-  BookOpen,
   AlertTriangle,
+  BookOpen,
   DollarSign,
   Package,
   TrendingUp,
-  Users,
 } from 'lucide-react'
 
 const fmt = (n: number | undefined) =>
@@ -78,7 +77,11 @@ export const ReportsPage = () => {
 
   useEffect(() => {
     if (!token) return
-    getAllFines(token).then(setFines).catch(console.error)
+    getAllFines(token)
+      .then((data) =>
+        setFines([...data].sort((a, b) => b.issuedAt.localeCompare(a.issuedAt)))
+      )
+      .catch(console.error)
   }, [token])
 
   // Reset to page 0 when filter changes
@@ -218,77 +221,6 @@ export const ReportsPage = () => {
               ))}
             </div>
 
-            {/* Top borrowed + Most active users */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              {/* Top Borrowed Books */}
-              <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div className="flex items-center gap-2 border-b border-gray-100 px-6 py-4">
-                  <BookOpen className="h-5 w-5 text-indigo-500" />
-                  <h3 className="text-base font-semibold text-gray-900">
-                    Top Borrowed Books
-                  </h3>
-                </div>
-                {report.topBorrowedBooks.length === 0 ? (
-                  <p className="p-6 text-sm text-gray-500">
-                    No borrowing data available.
-                  </p>
-                ) : (
-                  <ol className="divide-y divide-gray-100">
-                    {report.topBorrowedBooks.map((book, idx) => (
-                      <li
-                        key={book.title}
-                        className="flex items-center gap-4 px-6 py-3"
-                      >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-600">
-                          {idx + 1}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900">
-                          {book.title}
-                        </span>
-                        <span className="shrink-0 rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
-                          {book.borrowCount}×
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </div>
-
-              {/* Most Active Users */}
-              <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div className="flex items-center gap-2 border-b border-gray-100 px-6 py-4">
-                  <Users className="h-5 w-5 text-purple-500" />
-                  <h3 className="text-base font-semibold text-gray-900">
-                    Most Active Members
-                  </h3>
-                </div>
-                {report.mostActiveUsers.length === 0 ? (
-                  <p className="p-6 text-sm text-gray-500">
-                    No activity data available.
-                  </p>
-                ) : (
-                  <ol className="divide-y divide-gray-100">
-                    {report.mostActiveUsers.map((user, idx) => (
-                      <li
-                        key={user.email}
-                        className="flex items-center gap-4 px-6 py-3"
-                      >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-purple-50 text-xs font-bold text-purple-600">
-                          {idx + 1}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900">
-                          {user.email}
-                        </span>
-                        <span className="shrink-0 rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700">
-                          {user.borrowCount} loans
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </div>
-            </div>
-
             {/* ── All Transactions ───────────────────────────────────────── */}
             <div
               id="transactions"
@@ -327,6 +259,7 @@ export const ReportsPage = () => {
                     (t) =>
                       !q ||
                       (t.bookTitle ?? '').toLowerCase().includes(q) ||
+                      (t.memberName ?? '').toLowerCase().includes(q) ||
                       t.status.toLowerCase().includes(q)
                   )
                   const totalPages = Math.max(
@@ -351,6 +284,7 @@ export const ReportsPage = () => {
                     returned: 'bg-emerald-100 text-emerald-700',
                     overdue: 'bg-red-100 text-red-700',
                     lost: 'bg-gray-200 text-gray-600',
+                    'paid with fine': 'bg-teal-100 text-teal-700',
                   }
                   return filtered.length === 0 ? (
                     <p className="px-6 py-8 text-center text-sm text-gray-400">
@@ -363,6 +297,7 @@ export const ReportsPage = () => {
                           <thead>
                             <tr className="bg-gray-50 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                               <th className="px-6 py-3">Book</th>
+                              <th className="px-4 py-3">Member</th>
                               <th className="px-4 py-3">Status</th>
                               <th className="px-4 py-3">Checked Out</th>
                               <th className="px-4 py-3">Due Date</th>
@@ -381,12 +316,23 @@ export const ReportsPage = () => {
                                   <td className="max-w-[200px] truncate px-6 py-3 font-medium text-gray-900">
                                     {tx.bookTitle ?? 'Unknown'}
                                   </td>
+                                  <td className="whitespace-nowrap px-4 py-3 text-gray-700">
+                                    {tx.memberName ?? '—'}
+                                  </td>
                                   <td className="px-4 py-3">
-                                    <span
-                                      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusColors[tx.status] ?? 'bg-gray-100 text-gray-600'}`}
-                                    >
-                                      {tx.status}
-                                    </span>
+                                    {(() => {
+                                      const label =
+                                        tx.finePaid === true
+                                          ? 'paid with fine'
+                                          : tx.status
+                                      return (
+                                        <span
+                                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusColors[label] ?? 'bg-gray-100 text-gray-600'}`}
+                                        >
+                                          {label}
+                                        </span>
+                                      )
+                                    })()}
                                   </td>
                                   <td className="px-4 py-3 text-gray-600">
                                     {fmtD(tx.checkout_date)}

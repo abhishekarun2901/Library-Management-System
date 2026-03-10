@@ -94,12 +94,18 @@ export const MyActivityPage = () => {
       getUserHistory(token),
     ])
       .then(([txs, res, fins, hist]) => {
+        const byCheckout = (a: TransactionResponse, b: TransactionResponse) =>
+          (b.checkout_date ?? '').localeCompare(a.checkout_date ?? '')
         setTransactions(
-          txs.filter((t) => t.status === 'issued' || t.status === 'overdue')
+          txs
+            .filter((t) => t.status === 'issued' || t.status === 'overdue')
+            .sort(byCheckout)
         )
-        setReservationsList(res)
-        setFines(fins)
-        setHistory(hist)
+        setReservationsList(
+          [...res].sort((a, b) => b.reservedAt.localeCompare(a.reservedAt))
+        )
+        setFines([...fins].sort((a, b) => b.issuedAt.localeCompare(a.issuedAt)))
+        setHistory([...hist].sort(byCheckout))
       })
       .catch(console.error)
       .finally(() => setLoading(false))
