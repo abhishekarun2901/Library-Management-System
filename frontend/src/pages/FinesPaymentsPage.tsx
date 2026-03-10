@@ -28,7 +28,7 @@ export const FinesPaymentsPage = ({
   const { token } = useAuthStore()
   const sidebarItems =
     role === 'librarian' ? librarianSidebarItems : memberSidebarItems
-  const topbarTitle = role === 'librarian' ? 'Fines' : 'My Fines'
+  const topbarTitle = role === 'librarian' ? 'Fines & Payments' : 'My Fines'
 
   const [fines, setFines] = useState<FineResponse[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,9 +42,7 @@ export const FinesPaymentsPage = ({
     const loader =
       role === 'librarian' ? getAllFines(token) : getUserFines(token)
     loader
-      .then((data) =>
-        setFines([...data].sort((a, b) => b.issuedAt.localeCompare(a.issuedAt)))
-      )
+      .then(setFines)
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [token, role])
@@ -88,7 +86,9 @@ export const FinesPaymentsPage = ({
     <AppLayout sidebarItems={sidebarItems} topbarTitle={topbarTitle}>
       <div className="w-full space-y-6 p-6 pb-10">
         <PageHeader
-          title={role === 'librarian' ? 'Fines' : 'My Fines'}
+          title={
+            role === 'librarian' ? 'Fines & Payments' : 'My Fines & Payments'
+          }
           description={
             role === 'librarian'
               ? 'Track and manage overdue fines across all members'

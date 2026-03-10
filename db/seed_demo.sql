@@ -297,63 +297,6 @@ INSERT INTO transactions (
     NOW() - INTERVAL '14 days',
     NOW() - INTERVAL '10 days',
     'returned'
-  ),
-
-  -- ── ADDITIONAL HISTORICAL LATE RETURNS (for richer fine demo data) ──────────
-
-  -- James Wilson: "The Chocolate War" — returned 6 days late
-  (
-    'b1000000-0000-0000-0000-000000000017',
-    '37ec1755-58b3-4b37-8365-970c1ee67f34',
-    'a1b2c3d4-0001-0001-0001-000000000002',
-    NOW() - INTERVAL '50 days',
-    NOW() - INTERVAL '36 days',
-    NOW() - INTERVAL '30 days',
-    'returned'
-  ),
-
-  -- Emily Davis: "The Wild Rose" — returned 8 days late
-  (
-    'b1000000-0000-0000-0000-000000000018',
-    'b4343806-9231-44cc-bb43-fd7ae3f859b1',
-    'a1b2c3d4-0001-0001-0001-000000000005',
-    NOW() - INTERVAL '44 days',
-    NOW() - INTERVAL '30 days',
-    NOW() - INTERVAL '22 days',
-    'returned'
-  ),
-
-  -- Michael Brown: "The Wheel of Darkness" — returned 5 days late
-  (
-    'b1000000-0000-0000-0000-000000000019',
-    '49e99b8c-2c7f-48bd-a4dc-7dde92f32fd7',
-    'a1b2c3d4-0001-0001-0001-000000000004',
-    NOW() - INTERVAL '38 days',
-    NOW() - INTERVAL '24 days',
-    NOW() - INTERVAL '19 days',
-    'returned'
-  ),
-
-  -- David Garcia: "A Hole in the Heart: A Novel" — returned 5 days late
-  (
-    'b1000000-0000-0000-0000-000000000020',
-    'd857416c-9da1-4344-9ae7-3c868285d48a',
-    'a1b2c3d4-0001-0001-0001-000000000006',
-    NOW() - INTERVAL '60 days',
-    NOW() - INTERVAL '46 days',
-    NOW() - INTERVAL '41 days',
-    'returned'
-  ),
-
-  -- Alice (member@library.com): "The Shooters" — returned 8 days late
-  (
-    'b1000000-0000-0000-0000-000000000021',
-    'f589c929-96f1-482d-89ac-38a2d3879b29',
-    '283b8b89-4438-418d-89e7-8df1e73a75b7',
-    NOW() - INTERVAL '32 days',
-    NOW() - INTERVAL '18 days',
-    NOW() - INTERVAL '10 days',
-    'returned'
   );
 
 
@@ -446,6 +389,17 @@ INSERT INTO fines (
     false
   ),
 
+  -- Robert Kim: "Waiting: A Novel" — 5 days overdue × $0.50 = $2.50 — UNPAID
+  (
+    'c1000000-0000-0000-0000-000000000007',
+    'b1000000-0000-0000-0000-000000000015',
+    'a1b2c3d4-0001-0001-0001-000000000001',
+    2.50,
+    'Book overdue by 5 days. Fine charged at $0.50/day.',
+    NOW() - INTERVAL '5 days',
+    false
+  ),
+
   -- Sarah Chen: "The Sorcerer's Companion" — returned 4 days late × $0.50 = $2.00 — PAID
   (
     'c1000000-0000-0000-0000-000000000008',
@@ -455,61 +409,6 @@ INSERT INTO fines (
     'Book returned 4 days past due date. Fine charged at $0.50/day.',
     NOW() - INTERVAL '10 days',
     true
-  ),
-
-  -- James Wilson: "The Chocolate War" — returned 6 days late × $0.50 = $3.00 — PAID
-  (
-    'c1000000-0000-0000-0000-000000000009',
-    'b1000000-0000-0000-0000-000000000017',
-    'a1b2c3d4-0001-0001-0001-000000000002',
-    3.00,
-    'Book returned 6 days past due date. Fine charged at $0.50/day.',
-    NOW() - INTERVAL '30 days',
-    true
-  ),
-
-  -- Emily Davis: "The Wild Rose" — returned 8 days late × $0.50 = $4.00 — UNPAID
-  (
-    'c1000000-0000-0000-0000-000000000010',
-    'b1000000-0000-0000-0000-000000000018',
-    'a1b2c3d4-0001-0001-0001-000000000005',
-    4.00,
-    'Book returned 8 days past due date. Fine charged at $0.50/day.',
-    NOW() - INTERVAL '22 days',
-    false
-  ),
-
-  -- Michael Brown: "The Wheel of Darkness" — returned 5 days late × $0.50 = $2.50 — PAID
-  (
-    'c1000000-0000-0000-0000-000000000011',
-    'b1000000-0000-0000-0000-000000000019',
-    'a1b2c3d4-0001-0001-0001-000000000004',
-    2.50,
-    'Book returned 5 days past due date. Fine charged at $0.50/day.',
-    NOW() - INTERVAL '19 days',
-    true
-  ),
-
-  -- David Garcia: "A Hole in the Heart: A Novel" — returned 5 days late × $0.50 = $2.50 — PAID
-  (
-    'c1000000-0000-0000-0000-000000000012',
-    'b1000000-0000-0000-0000-000000000020',
-    'a1b2c3d4-0001-0001-0001-000000000006',
-    2.50,
-    'Book returned 5 days past due date. Fine charged at $0.50/day.',
-    NOW() - INTERVAL '41 days',
-    true
-  ),
-
-  -- Alice (member@library.com): "The Shooters" — returned 8 days late × $0.50 = $4.00 — UNPAID
-  (
-    'c1000000-0000-0000-0000-000000000013',
-    'b1000000-0000-0000-0000-000000000021',
-    '283b8b89-4438-418d-89e7-8df1e73a75b7',
-    4.00,
-    'Book returned 8 days past due date. Fine charged at $0.50/day.',
-    NOW() - INTERVAL '10 days',
-    false
   );
 
 
@@ -579,6 +478,16 @@ INSERT INTO reservations (
     NOW() - INTERVAL '10 days',
     NOW() - INTERVAL '9 days',
     'expired'
+  ),
+
+  -- robert.kim (admin): FULFILLED — reserved and returned "Little Wilson and Big God"
+  (
+    'd1000000-0000-0000-0000-000000000007',
+    'a1b2c3d4-0001-0001-0001-000000000001',
+    '7f80068b-66ec-4515-b45f-ad9fc459b90e',
+    NOW() - INTERVAL '35 days',
+    NOW() - INTERVAL '34 days',
+    'fulfilled'
   );
 
 

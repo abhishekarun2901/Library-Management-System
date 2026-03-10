@@ -248,7 +248,6 @@ public class ReservationServiceImpl implements ReservationService {
         return ReservationResponse.builder()
                 .reservationId(reservation.getReservationId())
                 .userId(reservation.getUser().getUserId())
-                .memberName(reservation.getUser().getFullName())
                 .bookId(reservation.getBook().getBookId())
                 .bookTitle(reservation.getBook().getTitle())
                 .reservedAt(reservation.getReservedAt())

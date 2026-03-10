@@ -2,7 +2,6 @@ package com.library.lbms.service.impl;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -276,24 +275,15 @@ public class UserServiceImpl implements UserService {
     private TransactionResponse mapToTransactionResponse(Transaction t) {
         String title = null;
         try { title = t.getCopy().getBook().getTitle(); } catch (Exception ignored) {}
-        String memberName = null;
-        try { memberName = t.getUser().getFullName(); } catch (Exception ignored) {}
-        Boolean finePaid = null;
-        try {
-            Optional<Fine> fine = fineRepository.findByTransaction_TransactionId(t.getTransactionId());
-            if (fine.isPresent()) finePaid = fine.get().getPaid();
-        } catch (Exception ignored) {}
         return TransactionResponse.builder()
                 .transactionId(t.getTransactionId())
                 .user_id(t.getUser().getUserId())
-                .memberName(memberName)
                 .copy_id(t.getCopy().getCopyId())
                 .bookTitle(title)
                 .checkout_date(t.getIssueDate())
                 .due_date(t.getDueDate())
                 .return_date(t.getReturnDate())
                 .status(t.getStatus().name())
-                .finePaid(finePaid)
                 .build();
     }
 

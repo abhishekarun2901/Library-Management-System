@@ -316,12 +316,12 @@ export const MemberManagement = () => {
 
   return (
     <AppLayout sidebarItems={sidebarItems} topbarTitle="Member Management">
-      <div className="w-full space-y-6 p-4 pb-10 sm:p-6">
+      <div className="w-full space-y-6 p-6 pb-10">
         <PageHeader
           title="Member Management"
           description="View, add, and manage library members"
           action={
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-3">
               <Button
                 onClick={() => {
                   setForm(emptyForm)

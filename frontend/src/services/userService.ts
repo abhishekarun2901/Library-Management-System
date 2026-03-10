@@ -23,7 +23,6 @@ export type UserPage = {
 export type TransactionResponse = {
   transactionId: string
   user_id: string
-  memberName: string | null
   copy_id: string
   bookTitle: string | null
   checkout_date: string | null
@@ -31,7 +30,6 @@ export type TransactionResponse = {
   return_date: string | null
   status: string // issued | returned | overdue | lost
   estimatedFine: number | null
-  finePaid: boolean | null
 }
 
 export type FineResponse = {

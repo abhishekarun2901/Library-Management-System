@@ -37,7 +37,7 @@ export const librarianSidebarItems = [
   },
   {
     id: 'fines',
-    label: 'Fines',
+    label: 'Fines & Payments',
     href: '/librarian/fines',
     icon: <SidebarIconFines />,
   },
