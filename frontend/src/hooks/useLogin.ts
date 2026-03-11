@@ -32,7 +32,7 @@ export function useLogin(): UseLoginReturn {
     try {
       const data = await loginUser({ email, password })
       setAuth({
-        token: data.token,
+        userId: data.userId ?? null,
         role: data.role === 'admin' ? 'admin' : 'member',
         fullName: data.fullName ?? null,
         memberSince: data.memberSince ?? null,

@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { Badge, Button, Input, Select, Textarea } from '../components/ui'
+import {
+  Badge,
+  Button,
+  Input,
+  SearchableSelect,
+  SearchInput,
+  Select,
+} from '../components/ui'
 import { AppLayout, PageHeader } from '../components/layout'
 import {
   FormField,
@@ -13,6 +19,7 @@ import { Modal } from '../components/overlay'
 import { librarianSidebarItems as sidebarItems } from '../config/sidebarConfig'
 import {
   getBooks,
+  getCategories,
   createBook,
   updateBook,
   deleteBook,
@@ -127,7 +134,7 @@ const fmtDate = (d: string | null | undefined) =>
     : '—'
 
 export const BookManagement = () => {
-  const { token } = useAuthStore()
+  const { isAuthenticated } = useAuthStore()
   const [activeTab, setActiveTab] = useState<Tab>('manage')
   const [showSuccess, setShowSuccess] = useState<string | null>(null)
 
@@ -168,17 +175,25 @@ export const BookManagement = () => {
     { label: string; value: string }[]
   >([])
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const memberDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const bookDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Issue tab state
   const [memberSearch, setMemberSearch] = useState('')
   const [memberResults, setMemberResults] = useState<UserResponse[]>([])
   const [memberSearchLoading, setMemberSearchLoading] = useState(false)
+  const [memberPage, setMemberPage] = useState(0)
+  const [memberTotalPages, setMemberTotalPages] = useState(0)
+  const [memberTotalElements, setMemberTotalElements] = useState(0)
   const [selectedMember, setSelectedMember] = useState<UserResponse | null>(
     null
   )
   const [issueBookSearch, setIssueBookSearch] = useState('')
   const [issueBookResults, setIssueBookResults] = useState<BookResponse[]>([])
   const [issueBookLoading, setIssueBookLoading] = useState(false)
+  const [issueBookPage, setIssueBookPage] = useState(0)
+  const [issueBookTotalPages, setIssueBookTotalPages] = useState(0)
+  const [issueBookTotalElements, setIssueBookTotalElements] = useState(0)
   const [selectedBook, setSelectedBook] = useState<BookResponse | null>(null)
   const [selectedCopy, setSelectedCopy] = useState<CopyResponse | null>(null)
   const [copies, setCopies] = useState<CopyResponse[]>([])
@@ -186,6 +201,7 @@ export const BookManagement = () => {
   const [issuing, setIssuing] = useState(false)
   const [showIssueSuccess, setShowIssueSuccess] = useState(false)
   const [recentTx, setRecentTx] = useState<TransactionResponse[]>([])
+  const [recentTxPage, setRecentTxPage] = useState(0)
 
   // Load books
   const loadBooks = (
@@ -193,12 +209,8 @@ export const BookManagement = () => {
     search = manSearch,
     genre = manFilterGenre
   ) => {
-    if (!token) return
     setManLoading(true)
-    getBooks(
-      { page, size: ITEMS_PER_PAGE, title: search, category: genre },
-      token
-    )
+    getBooks({ page, size: ITEMS_PER_PAGE, title: search, category: genre })
       .then((data) => {
         setBooks(data.content)
         setTotalPages(Math.max(1, data.totalPages))
@@ -208,8 +220,7 @@ export const BookManagement = () => {
   }
 
   const refreshCatalogTotal = () => {
-    if (!token) return
-    getBooks({ page: 0, size: 1 }, token)
+    getBooks({ page: 0, size: 1 })
       .then((data) => setCatalogTotal(data.totalElements))
       .catch(console.error)
   }
@@ -217,51 +228,42 @@ export const BookManagement = () => {
   useEffect(() => {
     loadBooks(manPage)
     refreshCatalogTotal()
-  }, [token])
+  }, [isAuthenticated])
 
   useEffect(() => {
-    if (!token) return
-    getReports(token)
+    if (!isAuthenticated) return
+    getReports()
       .then((data) => {
         setReportData(data)
       })
       .catch(console.error)
-  }, [token])
+  }, [isAuthenticated])
 
   const refreshReports = () => {
-    if (!token) return
-    getReports(token).then(setReportData).catch(console.error)
+    getReports().then(setReportData).catch(console.error)
   }
 
   useEffect(() => {
-    if (!token) return
-    getBooks({ page: 0, size: 1000 }, token)
-      .then((data) => {
-        const cats = Array.from(
-          new Set(data.content.flatMap((b) => b.categories ?? []))
-        )
-          .sort()
-          .map((c) => ({ label: c, value: c }))
-        setGenreOptions(cats)
-      })
+    getCategories()
+      .then((cats) =>
+        setGenreOptions(cats.map((c) => ({ label: c, value: c })))
+      )
       .catch(console.error)
-  }, [token])
+  }, [])
 
   useEffect(() => {
-    if (!token) return
-    getTransactions(token)
+    if (!isAuthenticated) return
+    getTransactions()
       .then((txs) => {
         setAllTx(txs)
         setRecentTx(
-          [...txs]
-            .sort((a, b) =>
-              (b.checkout_date ?? '').localeCompare(a.checkout_date ?? '')
-            )
-            .slice(0, 5)
+          [...txs].sort((a, b) =>
+            (b.checkout_date ?? '').localeCompare(a.checkout_date ?? '')
+          )
         )
       })
       .catch(console.error)
-  }, [token])
+  }, [isAuthenticated])
 
   const handlePageChange = (p: number) => {
     const page = p - 1
@@ -282,28 +284,17 @@ export const BookManagement = () => {
     }, 400)
   }
 
-  const handleClearSearch = () => {
-    setManSearch('')
-    setManFilterGenre('')
-    setManPage(0)
-    loadBooks(0, '', '')
-  }
-
   const handleAdd = async () => {
-    if (!token) return
     setSaving(true)
     try {
-      await createBook(
-        {
-          title: form.title,
-          authorNames: form.author ? [form.author] : undefined,
-          categories: form.category ? [form.category] : undefined,
-          publisherName: form.publisherName || undefined,
-          publishDate: form.publishDate || undefined,
-          description: form.description || undefined,
-        },
-        token
-      )
+      await createBook({
+        title: form.title,
+        authorNames: form.author ? [form.author] : undefined,
+        categories: form.category ? [form.category] : undefined,
+        publisherName: form.publisherName || undefined,
+        publishDate: form.publishDate || undefined,
+        description: form.description || undefined,
+      })
       setShowSuccess(`"${form.title}" has been added to the catalog.`)
       setForm(emptyForm)
       setIsAddOpen(false)
@@ -317,19 +308,15 @@ export const BookManagement = () => {
   }
 
   const handleEdit = async () => {
-    if (!token || !editingBook) return
+    if (!editingBook) return
     setSaving(true)
     try {
-      await updateBook(
-        editingBook.bookId,
-        {
-          title: form.title,
-          authorNames: form.author ? [form.author] : undefined,
-          categories: form.category ? [form.category] : undefined,
-          publisherName: form.publisherName || undefined,
-        },
-        token
-      )
+      await updateBook(editingBook.bookId, {
+        title: form.title,
+        authorNames: form.author ? [form.author] : undefined,
+        categories: form.category ? [form.category] : undefined,
+        publisherName: form.publisherName || undefined,
+      })
       setShowSuccess(`"${form.title}" has been updated.`)
       setForm(emptyForm)
       setEditingBook(null)
@@ -361,10 +348,10 @@ export const BookManagement = () => {
   }
 
   const handleDeleteBook = async () => {
-    if (!token || !deleteTarget) return
+    if (!deleteTarget) return
     setDeleting(true)
     try {
-      await deleteBook(deleteTarget.bookId, token)
+      await deleteBook(deleteTarget.bookId)
 
       setShowSuccess(`"${deleteTarget.title}" has been deleted.`)
       setIsDeleteOpen(false)
@@ -377,15 +364,13 @@ export const BookManagement = () => {
       refreshReports()
 
       // Refresh transactions list (issued transactions for this book are now gone)
-      getTransactions(token)
+      getTransactions()
         .then((txs) => {
           setAllTx(txs)
           setRecentTx(
-            [...txs]
-              .sort((a, b) =>
-                (b.checkout_date ?? '').localeCompare(a.checkout_date ?? '')
-              )
-              .slice(0, 5)
+            [...txs].sort((a, b) =>
+              (b.checkout_date ?? '').localeCompare(a.checkout_date ?? '')
+            )
           )
         })
         .catch(console.error)
@@ -403,7 +388,7 @@ export const BookManagement = () => {
     setIsCopiesOpen(true)
     setCopiesManageLoading(true)
     try {
-      const c = await getCopies(book.bookId, token!)
+      const c = await getCopies(book.bookId)
       setManagedCopies(c)
     } catch {
       setManagedCopies([])
@@ -413,10 +398,10 @@ export const BookManagement = () => {
   }
 
   const handleAddCopy = async () => {
-    if (!token || !copiesBook) return
+    if (!copiesBook) return
     setAddingCopy(true)
     try {
-      const c = await createCopy(copiesBook.bookId, token)
+      const c = await createCopy(copiesBook.bookId)
       setManagedCopies((prev) => [...prev, c])
       loadBooks(manPage)
       refreshReports()
@@ -428,9 +413,8 @@ export const BookManagement = () => {
   }
 
   const handleMarkCopyLost = async (copy: CopyResponse) => {
-    if (!token) return
     try {
-      const updated = await updateCopyStatus(copy.copyId, 'LOST', token)
+      const updated = await updateCopyStatus(copy.copyId, 'LOST')
       setManagedCopies((prev) =>
         prev.map((c) => (c.copyId === copy.copyId ? updated : c))
       )
@@ -442,9 +426,8 @@ export const BookManagement = () => {
   }
 
   const handleMarkCopyFound = async (copy: CopyResponse) => {
-    if (!token) return
     try {
-      const updated = await updateCopyStatus(copy.copyId, 'AVAILABLE', token)
+      const updated = await updateCopyStatus(copy.copyId, 'AVAILABLE')
       setManagedCopies((prev) =>
         prev.map((c) => (c.copyId === copy.copyId ? updated : c))
       )
@@ -457,10 +440,9 @@ export const BookManagement = () => {
   }
 
   const handleDeleteCopy = async (copy: CopyResponse) => {
-    if (!token) return
     setDeletingCopyId(copy.copyId)
     try {
-      await deleteCopy(copy.copyId, token)
+      await deleteCopy(copy.copyId)
       setManagedCopies((prev) => prev.filter((c) => c.copyId !== copy.copyId))
       loadBooks(manPage)
       refreshReports()
@@ -473,10 +455,10 @@ export const BookManagement = () => {
   }
 
   const handleReturnBook = async (tx: TransactionResponse) => {
-    if (!token || returningId) return
+    if (returningId) return
     setReturningId(tx.transactionId)
     try {
-      await returnBook(tx.transactionId, token)
+      await returnBook(tx.transactionId)
       setRecentTx((prev) =>
         prev.map((t) =>
           t.transactionId === tx.transactionId
@@ -500,38 +482,71 @@ export const BookManagement = () => {
     }
   }
 
-  // Member search for issue tab (debounced via button)
-  const handleMemberSearch = async () => {
-    if (!token || memberSearch.length < 2) return
+  // Member search for issue tab — fires on type (debounced) and on Enter
+  const runMemberSearch = async (query: string, page = 0) => {
+    if (query.trim().length < 2) {
+      setMemberResults([])
+      setMemberTotalPages(0)
+      setMemberTotalElements(0)
+      setMemberPage(0)
+      return
+    }
     setMemberSearchLoading(true)
     try {
-      const data = await getUsers({ page: 0, size: 10 }, token)
-      setMemberResults(
-        data.content.filter(
-          (u) =>
-            u.fullName.toLowerCase().includes(memberSearch.toLowerCase()) ||
-            u.email.toLowerCase().includes(memberSearch.toLowerCase())
-        )
-      )
+      const data = await getUsers({ page, size: 8, search: query })
+      setMemberResults(data.content)
+      setMemberTotalPages(data.totalPages)
+      setMemberTotalElements(data.totalElements)
+      setMemberPage(page)
     } catch {
       setMemberResults([])
+      setMemberTotalPages(0)
+      setMemberTotalElements(0)
     } finally {
       setMemberSearchLoading(false)
     }
   }
 
-  // Book search for issue tab
-  const handleIssueBookSearch = async () => {
-    if (!token || issueBookSearch.length < 2) return
+  const handleMemberSearchChange = (value: string) => {
+    setMemberSearch(value)
+    setSelectedMember(null)
+    setMemberPage(0)
+    if (memberDebounceRef.current) clearTimeout(memberDebounceRef.current)
+    memberDebounceRef.current = setTimeout(() => runMemberSearch(value, 0), 350)
+  }
+
+  // Book search for issue tab — fires on type (debounced) and on Enter
+  const runBookSearch = async (query: string, page = 0) => {
+    if (query.trim().length < 2) {
+      setIssueBookResults([])
+      setIssueBookTotalPages(0)
+      setIssueBookTotalElements(0)
+      setIssueBookPage(0)
+      return
+    }
     setIssueBookLoading(true)
     try {
-      const data = await getBooks({ title: issueBookSearch, size: 10 }, token)
+      const data = await getBooks({ search: query, page, size: 8 })
       setIssueBookResults(data.content)
+      setIssueBookTotalPages(data.totalPages)
+      setIssueBookTotalElements(data.totalElements)
+      setIssueBookPage(page)
     } catch {
       setIssueBookResults([])
+      setIssueBookTotalPages(0)
+      setIssueBookTotalElements(0)
     } finally {
       setIssueBookLoading(false)
     }
+  }
+
+  const handleBookSearchChange = (value: string) => {
+    setIssueBookSearch(value)
+    setSelectedBook(null)
+    setSelectedCopy(null)
+    setIssueBookPage(0)
+    if (bookDebounceRef.current) clearTimeout(bookDebounceRef.current)
+    bookDebounceRef.current = setTimeout(() => runBookSearch(value, 0), 350)
   }
 
   // Load copies when book selected
@@ -540,10 +555,9 @@ export const BookManagement = () => {
     setIssueBookSearch(book.title)
     setIssueBookResults([])
     setSelectedCopy(null)
-    if (!token) return
     setCopiesLoading(true)
     try {
-      const c = await getCopies(book.bookId, token)
+      const c = await getCopies(book.bookId)
       const available = c.filter((copy) => copy.status === 'AVAILABLE')
       setCopies(available)
       if (available.length > 0) setSelectedCopy(available[0])
@@ -555,13 +569,13 @@ export const BookManagement = () => {
   }
 
   const handleIssue = async () => {
-    if (!selectedMember || !selectedCopy || !token) return
+    if (!selectedMember || !selectedCopy) return
     setIssuing(true)
     try {
-      await issueBook(
-        { userId: selectedMember.userId, copyId: selectedCopy.copyId },
-        token
-      )
+      await issueBook({
+        userId: selectedMember.userId,
+        copyId: selectedCopy.copyId,
+      })
       setShowIssueSuccess(true)
       setSelectedMember(null)
       setSelectedBook(null)
@@ -570,16 +584,15 @@ export const BookManagement = () => {
       setMemberSearch('')
       setIssueBookSearch('')
       // Refresh recent transactions
-      getTransactions(token)
+      getTransactions()
         .then((txs) => {
           setAllTx(txs)
           setRecentTx(
-            [...txs]
-              .sort((a, b) =>
-                (b.checkout_date ?? '').localeCompare(a.checkout_date ?? '')
-              )
-              .slice(0, 5)
+            [...txs].sort((a, b) =>
+              (b.checkout_date ?? '').localeCompare(a.checkout_date ?? '')
+            )
           )
+          setRecentTxPage(0)
         })
         .catch(console.error)
     } catch (e: unknown) {
@@ -591,6 +604,8 @@ export const BookManagement = () => {
   }
 
   const clearIssueForm = () => {
+    if (memberDebounceRef.current) clearTimeout(memberDebounceRef.current)
+    if (bookDebounceRef.current) clearTimeout(bookDebounceRef.current)
     setSelectedMember(null)
     setSelectedBook(null)
     setSelectedCopy(null)
@@ -598,8 +613,15 @@ export const BookManagement = () => {
     setMemberSearch('')
     setIssueBookSearch('')
     setMemberResults([])
+    setMemberPage(0)
+    setMemberTotalPages(0)
+    setMemberTotalElements(0)
     setIssueBookResults([])
+    setIssueBookPage(0)
+    setIssueBookTotalPages(0)
+    setIssueBookTotalElements(0)
     setShowIssueSuccess(false)
+    setRecentTxPage(0)
   }
 
   const isFormValid =
@@ -657,15 +679,6 @@ export const BookManagement = () => {
           />
         </FormField>
       </div>
-      <FormField label="Description" htmlFor="book-description">
-        <Textarea
-          id="book-description"
-          placeholder="Brief description of the book..."
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          rows={3}
-        />
-      </FormField>
     </div>
   )
 
@@ -676,15 +689,10 @@ export const BookManagement = () => {
 
   return (
     <AppLayout sidebarItems={sidebarItems} topbarTitle="Books">
-      <div className="w-full space-y-6 p-6 pb-10">
+      <div className="w-full space-y-4 p-4 pb-10 sm:space-y-6 sm:p-6">
         <PageHeader
           title="Books"
           description="Browse the catalog, manage inventory, and issue books to members"
-          action={
-            <Link to="/librarian">
-              <Button variant="secondary">Back to Dashboard</Button>
-            </Link>
-          }
         />
 
         {showSuccess && (
@@ -774,42 +782,32 @@ export const BookManagement = () => {
                 </Button>
               }
             >
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
-                <div className="sm:col-span-5">
-                  <Input
-                    placeholder="Search by title…"
-                    type="search"
-                    value={manSearch}
-                    onChange={(e) => {
-                      setManSearch(e.target.value)
-                      handleSearchDebounced(e.target.value)
-                    }}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                  />
-                </div>
-                <div className="sm:col-span-4">
-                  <Select
-                    placeholder="All Genres"
-                    value={manFilterGenre}
-                    onChange={(e) => {
-                      setManFilterGenre(e.target.value)
-                      handleSearchDebounced(manSearch, e.target.value)
-                    }}
-                    options={[
-                      { label: 'All Genres', value: '' },
-                      ...genreOptions,
-                    ]}
-                  />
-                </div>
-                <div className="sm:col-span-3">
-                  <Button
-                    className="w-full"
-                    variant="secondary"
-                    onClick={handleClearSearch}
-                  >
-                    Clear
-                  </Button>
-                </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <SearchInput
+                  className="flex-1"
+                  placeholder="Search by title…"
+                  value={manSearch}
+                  onChange={(e) => {
+                    setManSearch(e.target.value)
+                    handleSearchDebounced(e.target.value)
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  onClear={() => {
+                    setManSearch('')
+                    setManPage(0)
+                    loadBooks(0, '', manFilterGenre)
+                  }}
+                />
+                <SearchableSelect
+                  className="sm:w-52"
+                  placeholder="All Genres"
+                  value={manFilterGenre}
+                  options={genreOptions}
+                  onChange={(val) => {
+                    setManFilterGenre(val)
+                    handleSearchDebounced(manSearch, val)
+                  }}
+                />
               </div>
             </SearchCard>
 
@@ -826,7 +824,7 @@ export const BookManagement = () => {
                     subtitle={`${book.authors?.join(', ') ?? '—'} · ${book.categories?.join(', ') ?? '—'}`}
                     meta={`${book.trueAvailableStock ?? 0} available copies · ${book.publisher ?? ''}`}
                     action={
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
                         <Badge
                           label={
                             (book.trueAvailableStock ?? 0) > 0
@@ -839,27 +837,29 @@ export const BookManagement = () => {
                               : 'issued'
                           }
                         />
-                        <Button
-                          variant="secondary"
-                          className="text-xs"
-                          onClick={() => openCopies(book)}
-                        >
-                          Copies
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          className="text-xs"
-                          onClick={() => openEdit(book)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          className="text-xs text-red-600 hover:text-red-700"
-                          onClick={() => openDeleteBook(book)}
-                        >
-                          Delete
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="secondary"
+                            className="text-xs"
+                            onClick={() => openCopies(book)}
+                          >
+                            Copies
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            className="text-xs"
+                            onClick={() => openEdit(book)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            className="text-xs text-red-600 hover:text-red-700"
+                            onClick={() => openDeleteBook(book)}
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </div>
                     }
                   />
@@ -894,30 +894,48 @@ export const BookManagement = () => {
               />
             )}
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
               {/* Member select */}
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
                 <h3 className="mb-4 text-lg font-semibold text-gray-900">
                   1. Select Member
                 </h3>
                 <FormField
                   label="Search Member"
                   htmlFor="member-search"
-                  helperText="Search by name or email, then click Search"
+                  helperText="Type a name or email, then press Search or Enter"
                 >
                   <div className="flex gap-2">
-                    <Input
+                    <SearchInput
                       id="member-search"
                       placeholder="e.g. Alex Johnson"
                       value={memberSearch}
-                      onChange={(e) => {
-                        setMemberSearch(e.target.value)
+                      onChange={(e) => handleMemberSearchChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          if (memberDebounceRef.current)
+                            clearTimeout(memberDebounceRef.current)
+                          runMemberSearch(memberSearch, 0)
+                        }
+                      }}
+                      onClear={() => {
+                        setMemberSearch('')
+                        setMemberResults([])
+                        setMemberTotalPages(0)
+                        setMemberTotalElements(0)
+                        setMemberPage(0)
                         setSelectedMember(null)
                       }}
                     />
                     <Button
-                      onClick={handleMemberSearch}
-                      disabled={memberSearchLoading || memberSearch.length < 2}
+                      onClick={() => {
+                        if (memberDebounceRef.current)
+                          clearTimeout(memberDebounceRef.current)
+                        runMemberSearch(memberSearch, 0)
+                      }}
+                      disabled={
+                        memberSearchLoading || memberSearch.trim().length < 2
+                      }
                     >
                       {memberSearchLoading ? '…' : 'Search'}
                     </Button>
@@ -926,7 +944,7 @@ export const BookManagement = () => {
                 {memberResults.length > 0 && !selectedMember && (
                   <div className="mt-4 space-y-2">
                     <p className="text-sm font-medium text-gray-600">
-                      {memberResults.length} member(s) found
+                      {memberTotalElements} member(s) found
                     </p>
                     {memberResults.map((m) => (
                       <button
@@ -936,6 +954,8 @@ export const BookManagement = () => {
                           setSelectedMember(m)
                           setMemberSearch(m.fullName)
                           setMemberResults([])
+                          setMemberTotalPages(0)
+                          setMemberTotalElements(0)
                         }}
                         className="w-full rounded-lg border border-gray-200 bg-gray-50 p-3 text-left transition hover:border-indigo-300 hover:bg-indigo-50"
                       >
@@ -945,17 +965,32 @@ export const BookManagement = () => {
                         <p className="text-sm text-gray-500">{m.email}</p>
                       </button>
                     ))}
+                    {memberTotalPages > 1 && (
+                      <Pagination
+                        currentPage={memberPage + 1}
+                        totalPages={memberTotalPages}
+                        onChange={(p) => runMemberSearch(memberSearch, p - 1)}
+                      />
+                    )}
                   </div>
                 )}
                 {selectedMember && (
                   <div className="mt-4 rounded-lg border-2 border-indigo-200 bg-indigo-50 p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-gray-900">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-400 mb-1">
+                          Selected Member
+                        </p>
+                        <p className="font-semibold text-gray-900 truncate">
                           {selectedMember.fullName}
                         </p>
-                        <p className="text-sm text-gray-600">
+                        <p className="mt-0.5 text-sm text-gray-600 truncate">
                           {selectedMember.email}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-400">
+                          {selectedMember.role === 'admin'
+                            ? 'Librarian / Admin'
+                            : 'Member'}
                         </p>
                       </div>
                       <button
@@ -974,29 +1009,47 @@ export const BookManagement = () => {
               </div>
 
               {/* Book select */}
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
                 <h3 className="mb-4 text-lg font-semibold text-gray-900">
                   2. Select Book
                 </h3>
                 <FormField
                   label="Search Book"
                   htmlFor="issue-book-search"
-                  helperText="Search by title, then click Search"
+                  helperText="Type a title, then press Search or Enter"
                 >
                   <div className="flex gap-2">
-                    <Input
+                    <SearchInput
                       id="issue-book-search"
                       placeholder="e.g. Clean Code"
                       value={issueBookSearch}
-                      onChange={(e) => {
-                        setIssueBookSearch(e.target.value)
+                      onChange={(e) => handleBookSearchChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          if (bookDebounceRef.current)
+                            clearTimeout(bookDebounceRef.current)
+                          runBookSearch(issueBookSearch, 0)
+                        }
+                      }}
+                      onClear={() => {
+                        setIssueBookSearch('')
+                        setIssueBookResults([])
+                        setIssueBookTotalPages(0)
+                        setIssueBookTotalElements(0)
+                        setIssueBookPage(0)
                         setSelectedBook(null)
                         setSelectedCopy(null)
                       }}
                     />
                     <Button
-                      onClick={handleIssueBookSearch}
-                      disabled={issueBookLoading || issueBookSearch.length < 2}
+                      onClick={() => {
+                        if (bookDebounceRef.current)
+                          clearTimeout(bookDebounceRef.current)
+                        runBookSearch(issueBookSearch, 0)
+                      }}
+                      disabled={
+                        issueBookLoading || issueBookSearch.trim().length < 2
+                      }
                     >
                       {issueBookLoading ? '…' : 'Search'}
                     </Button>
@@ -1005,7 +1058,7 @@ export const BookManagement = () => {
                 {issueBookResults.length > 0 && !selectedBook && (
                   <div className="mt-4 space-y-2">
                     <p className="text-sm font-medium text-gray-600">
-                      {issueBookResults.length} book(s) found
+                      {issueBookTotalElements} book(s) found
                     </p>
                     {issueBookResults.map((b) => (
                       <button
@@ -1018,12 +1071,12 @@ export const BookManagement = () => {
                         disabled={(b.trueAvailableStock ?? 0) === 0}
                         className={`w-full rounded-lg border p-3 text-left transition ${(b.trueAvailableStock ?? 0) === 0 ? 'cursor-not-allowed border-gray-200 bg-gray-100 opacity-60' : 'border-gray-200 bg-gray-50 hover:border-indigo-300 hover:bg-indigo-50'}`}
                       >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium text-gray-900">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-gray-900">
                               {b.title}
                             </p>
-                            <p className="text-sm text-gray-500">
+                            <p className="truncate text-sm text-gray-500">
                               {b.authors?.join(', ')}
                             </p>
                           </div>
@@ -1042,28 +1095,33 @@ export const BookManagement = () => {
                         </div>
                       </button>
                     ))}
+                    {issueBookTotalPages > 1 && (
+                      <Pagination
+                        currentPage={issueBookPage + 1}
+                        totalPages={issueBookTotalPages}
+                        onChange={(p) => runBookSearch(issueBookSearch, p - 1)}
+                      />
+                    )}
                   </div>
                 )}
                 {selectedBook && (
                   <div className="mt-4 rounded-lg border-2 border-indigo-200 bg-indigo-50 p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-gray-900">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-400 mb-1">
+                          Selected Book
+                        </p>
+                        <p className="font-semibold text-gray-900 truncate">
                           {selectedBook.title}
                         </p>
-                        <p className="text-sm text-gray-600">
-                          {selectedBook.authors?.join(', ')}
+                        <p className="mt-0.5 text-sm text-gray-600 truncate">
+                          {selectedBook.authors?.join(', ') ?? '—'}
                         </p>
-                        {copiesLoading ? (
-                          <p className="mt-1 text-xs text-gray-500">
-                            Loading copies…
-                          </p>
-                        ) : (
-                          <p className="mt-1 text-xs text-gray-500">
-                            {copies.length} available cop
-                            {copies.length === 1 ? 'y' : 'ies'}
-                          </p>
-                        )}
+                        <p className="mt-1 text-xs text-gray-400">
+                          {copiesLoading
+                            ? 'Loading copies…'
+                            : `${copies.length} available cop${copies.length === 1 ? 'y' : 'ies'}`}
+                        </p>
                       </div>
                       <button
                         type="button"
@@ -1084,32 +1142,53 @@ export const BookManagement = () => {
             </div>
 
             {/* Confirm & Issue */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-              <h3 className="mb-4 text-lg font-semibold text-gray-900">
-                3. Confirm &amp; Issue
-              </h3>
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  3. Confirm &amp; Issue
+                </h3>
+                {canIssue && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 ring-1 ring-emerald-200">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Ready to issue
+                  </span>
+                )}
+              </div>
+
               {canIssue ? (
-                <div className="mb-4 space-y-2 rounded-lg border border-gray-100 bg-gray-50 p-4">
-                  {[
-                    { label: 'Member', value: selectedMember!.fullName },
-                    { label: 'Email', value: selectedMember!.email },
-                    { label: 'Book', value: selectedBook!.title },
-                    {
-                      label: 'Copy ID',
-                      value: selectedCopy!.copyId.slice(0, 8) + '…',
-                    },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="flex justify-between text-sm">
-                      <span className="text-gray-500">{label}</span>
-                      <span className="font-medium text-gray-900">{value}</span>
-                    </div>
-                  ))}
+                <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {/* Member card */}
+                  <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-4">
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-indigo-400">
+                      Member
+                    </p>
+                    <p className="text-sm font-semibold text-gray-900">
+                      {selectedMember!.fullName}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-gray-500">
+                      {selectedMember!.email}
+                    </p>
+                  </div>
+                  {/* Book card */}
+                  <div className="rounded-lg border border-purple-100 bg-purple-50/60 p-4">
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-purple-400">
+                      Book
+                    </p>
+                    <p className="text-sm font-semibold text-gray-900 leading-snug">
+                      {selectedBook!.title}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs text-gray-500">
+                      {selectedBook!.authors?.join(', ') ?? '—'}
+                    </p>
+                  </div>
                 </div>
               ) : (
-                <p className="mb-4 text-sm text-gray-500">
-                  Please select a member and an available book above to proceed.
-                </p>
+                <div className="mb-5 flex items-center gap-3 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-4 text-sm text-gray-400">
+                  <span className="text-lg">📋</span>
+                  Select a member and an available book above to proceed.
+                </div>
               )}
+
               <div className="flex items-center gap-3">
                 <Button disabled={!canIssue} onClick={handleIssue}>
                   {issuing ? 'Issuing…' : 'Issue Book'}
@@ -1121,52 +1200,65 @@ export const BookManagement = () => {
             </div>
 
             {/* Recent Issues */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
               <h3 className="mb-4 text-lg font-semibold text-gray-900">
                 Recent Issues
               </h3>
               {recentTx.length === 0 ? (
                 <p className="text-sm text-gray-500">No recent transactions.</p>
               ) : (
-                <div className="space-y-3">
-                  {recentTx.map((tx) => (
-                    <ListItemCard
-                      key={tx.transactionId}
-                      title={tx.bookTitle ?? 'Unknown Book'}
-                      subtitle={`Issued ${fmtDate(tx.checkout_date)} · Due ${fmtDate(tx.due_date)}`}
-                      action={
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            label={
-                              tx.status.charAt(0).toUpperCase() +
-                              tx.status.slice(1)
-                            }
-                            variant={
-                              tx.status === 'returned'
-                                ? 'available'
-                                : tx.status === 'overdue'
-                                  ? 'overdue'
-                                  : 'issued'
-                            }
-                          />
-                          {(tx.status === 'issued' ||
-                            tx.status === 'overdue') && (
-                            <Button
-                              variant="secondary"
-                              className="text-xs"
-                              disabled={returningId === tx.transactionId}
-                              onClick={() => handleReturnBook(tx)}
-                            >
-                              {returningId === tx.transactionId
-                                ? '…'
-                                : 'Return'}
-                            </Button>
-                          )}
-                        </div>
-                      }
-                    />
-                  ))}
-                </div>
+                <>
+                  <div className="space-y-3">
+                    {recentTx
+                      .slice(recentTxPage * 5, (recentTxPage + 1) * 5)
+                      .map((tx) => (
+                        <ListItemCard
+                          key={tx.transactionId}
+                          title={tx.bookTitle ?? 'Unknown Book'}
+                          subtitle={`${tx.memberName ?? 'Unknown Member'} · Issued ${fmtDate(tx.checkout_date)} · Due ${fmtDate(tx.due_date)}`}
+                          action={
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                label={
+                                  tx.status.charAt(0).toUpperCase() +
+                                  tx.status.slice(1)
+                                }
+                                variant={
+                                  tx.status === 'returned'
+                                    ? 'available'
+                                    : tx.status === 'overdue'
+                                      ? 'overdue'
+                                      : 'issued'
+                                }
+                              />
+                              {(tx.status === 'issued' ||
+                                tx.status === 'overdue') && (
+                                <Button
+                                  variant="secondary"
+                                  className="text-xs"
+                                  disabled={returningId === tx.transactionId}
+                                  onClick={() => handleReturnBook(tx)}
+                                >
+                                  {returningId === tx.transactionId
+                                    ? '…'
+                                    : 'Return'}
+                                </Button>
+                              )}
+                            </div>
+                          }
+                        />
+                      ))}
+                  </div>
+                  {Math.ceil(recentTx.length / 5) > 1 && (
+                    <div className="mt-4">
+                      <Pagination
+                        currentPage={recentTxPage + 1}
+                        totalPages={Math.ceil(recentTx.length / 5)}
+                        onChange={(p) => setRecentTxPage(p - 1)}
+                      />
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </>

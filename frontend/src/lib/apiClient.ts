@@ -4,18 +4,17 @@ const API_BASE =
 
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit = {},
-  token?: string | null
+  options: RequestInit = {}
 ): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   }
-  if (token) headers['Authorization'] = `Bearer ${token}`
 
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
+    credentials: 'include', // send HttpOnly jwt cookie automatically
     cache: 'no-store',
   })
 

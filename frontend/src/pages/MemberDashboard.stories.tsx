@@ -16,14 +16,8 @@ export default meta
 type Story = StoryObj<typeof MemberDashboard>
 
 /** Full member dashboard — desktop viewport with overdue banner visible */
-export const Default: Story = {}
-
-/** Member dashboard at tablet width (768 px) */
-export const Tablet: Story = {
+export const Default: Story = {
   parameters: { viewport: { defaultViewport: "tablet" } },
 }
 
-/** Member dashboard at mobile width (375 px) */
-export const Mobile: Story = {
-  parameters: { viewport: { defaultViewport: "mobile1" } },
-}
+

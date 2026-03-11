@@ -19,4 +19,6 @@ public interface BookService {
     BookResponse getBookById(UUID id);
     BookResponse updateBook(UUID id, UpdateBookRequest request);
     void deleteBook(UUID id);
+
+    java.util.List<String> getCategories();
 }

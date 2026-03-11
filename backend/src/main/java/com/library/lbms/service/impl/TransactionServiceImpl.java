@@ -161,7 +161,19 @@ public class TransactionServiceImpl implements TransactionService {
 
         user.setUpdatedAt(LocalDateTime.now());
         Transaction savedTx = transactionRepository.save(tx);
-        
+
+        // Notify the member that their book has been issued
+        String bookTitle = copy.getBook().getTitle();
+        String dueDateStr = tx.getDueDate().toLocalDate().toString();
+        notificationRepository.save(Notification.builder()
+                .notificationId(UUID.randomUUID())
+                .user(user)
+                .type("BOOK_ISSUED")
+                .message("\"" + bookTitle + "\" has been issued to you. Please return it by " + dueDateStr + ".")
+                .isRead(false)
+                .createdAt(LocalDateTime.now())
+                .build());
+
         evictBookCache(copy.getBook().getBookId()); // Invalidate Cache
         return mapToResponse(savedTx);
     }
@@ -196,12 +208,34 @@ public class TransactionServiceImpl implements TransactionService {
                 tx.getCopy().setStatus(CopyStatus.AVAILABLE);
                 applyOverdueFineIfNeeded(tx, now);
                 notifyNextReservationIfAny(tx.getCopy());
+                // Notify the member that their book has been returned
+                String returnedTitle = "a book";
+                try { returnedTitle = tx.getCopy().getBook().getTitle(); } catch (Exception ignored) {}
+                notificationRepository.save(Notification.builder()
+                        .notificationId(UUID.randomUUID())
+                        .user(tx.getUser())
+                        .type("BOOK_RETURNED")
+                        .message("\"" + returnedTitle + "\" has been successfully returned. Thank you!")
+                        .isRead(false)
+                        .createdAt(now)
+                        .build());
             }
             case "LOST" -> {
                 tx.setReturnDate(now);
                 tx.setStatus(TransactionStatus.lost);
                 tx.getCopy().setStatus(CopyStatus.LOST);
                 applyLostPenalty(tx, now);
+                // Notify the member about the lost book penalty
+                String lostTitle = "a book";
+                try { lostTitle = tx.getCopy().getBook().getTitle(); } catch (Exception ignored) {}
+                notificationRepository.save(Notification.builder()
+                        .notificationId(UUID.randomUUID())
+                        .user(tx.getUser())
+                        .type("BOOK_LOST")
+                        .message("\"" + lostTitle + "\" has been marked as lost. A penalty fine of $50.00 has been applied to your account.")
+                        .isRead(false)
+                        .createdAt(now)
+                        .build());
             }
             default -> throw new BadRequestException("Only RETURNED or LOST status is supported.");
         }
@@ -289,7 +323,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .notificationId(UUID.randomUUID())
                 .user(first.getUser())
                 .type("RESERVATION_READY")
-                .message("Reservation ready for: " + copy.getBook().getTitle())
+                .message("Your reserved copy of \"" + copy.getBook().getTitle() + "\" is now available. Please visit the library to collect it.")
                 .isRead(false)
                 .createdAt(LocalDateTime.now())
                 .build());
@@ -301,6 +335,7 @@ public class TransactionServiceImpl implements TransactionService {
         return TransactionResponse.builder()
                 .transactionId(t.getTransactionId())
                 .user_id(t.getUser().getUserId())
+                .memberName(t.getUser().getFullName())
                 .copy_id(t.getCopy().getCopyId())
                 .bookTitle(title)
                 .checkout_date(t.getIssueDate())

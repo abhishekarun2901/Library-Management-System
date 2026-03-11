@@ -17,16 +17,3 @@ export const Default: Story = {
   }
 }
 
-export const Financial: Story = {
-  args: {
-    label: "Outstanding Fines",
-    value: "$11.00"
-  }
-}
-
-export const SmallCount: Story = {
-  args: {
-    label: "Pending Returns",
-    value: "23"
-  }
-}

@@ -9,9 +9,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.library.lbms.dao.FineRepository;
+import com.library.lbms.dao.NotificationRepository;
 import com.library.lbms.dao.UserRepository;
 import com.library.lbms.dto.response.FineResponse;
 import com.library.lbms.entity.Fine;
+import com.library.lbms.entity.Notification;
 import com.library.lbms.entity.User;
 import com.library.lbms.exception.ResourceNotFoundException;
 import com.library.lbms.service.FineService;
@@ -24,6 +26,7 @@ public class FineServiceImpl implements FineService {
 
     private final FineRepository fineRepository;
     private final UserRepository userRepository;
+    private final NotificationRepository notificationRepository;
 
     @Override
     public List<FineResponse> getAllFines() {
@@ -58,9 +61,24 @@ public class FineServiceImpl implements FineService {
         fine.setPaid(true);
         fineRepository.save(fine);
 
-        // Update user audit
+        // Notify the member
         User user = fine.getUser();
         if (user != null) {
+            String bookTitle = null;
+            try { bookTitle = fine.getTransaction().getCopy().getBook().getTitle(); } catch (Exception ignored) {}
+            String msg = bookTitle != null
+                    ? String.format("Your fine of $%.2f for \"%s\" has been marked as paid.", fine.getAmount(), bookTitle)
+                    : String.format("Your fine of $%.2f has been marked as paid.", fine.getAmount());
+            notificationRepository.save(
+                    Notification.builder()
+                            .notificationId(UUID.randomUUID())
+                            .user(user)
+                            .message(msg)
+                            .type("FINE_PAID")
+                            .isRead(false)
+                            .createdAt(LocalDateTime.now())
+                            .build()
+            );
             user.setUpdatedAt(LocalDateTime.now());
             userRepository.save(user);
         }

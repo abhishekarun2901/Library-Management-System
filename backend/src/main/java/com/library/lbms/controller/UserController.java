@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -18,8 +19,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import com.library.lbms.dto.response.UserResponse;
 import com.library.lbms.dto.request.UpdateUserRequest;
+import com.library.lbms.dto.response.UserResponse;
 import com.library.lbms.service.UserService;
 
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class UserController {
     public ResponseEntity<?> getUsers(
             @RequestParam(required = false) String scope,
             @RequestParam(required = false) UUID userId,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "createdAt") String sortBy,
@@ -46,7 +48,9 @@ public class UserController {
                     ? Sort.Direction.DESC
                     : Sort.Direction.ASC;
             Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-            Page<UserResponse> users = userService.getAllUsers(pageable);
+            Page<UserResponse> users = StringUtils.hasText(search)
+                    ? userService.getAllUsers(search, pageable)
+                    : userService.getAllUsers(pageable);
             return ResponseEntity.ok(users);
         }
 

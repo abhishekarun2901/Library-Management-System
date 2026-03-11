@@ -6,6 +6,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -46,6 +48,7 @@ public class BookServiceImpl implements BookService {
     private final ReservationRepository reservationRepository;
 
     @Override
+    @CacheEvict(value = "categories", allEntries = true)
     public BookResponse createBook(CreateBookRequest request) {
         Publisher publisher = null;
         if (StringUtils.hasText(request.getPublisherName())) {
@@ -108,6 +111,7 @@ public class BookServiceImpl implements BookService {
 
     @Override
     @Transactional
+    @CacheEvict(value = "categories", allEntries = true)
     public BookResponse updateBook(UUID id, UpdateBookRequest request) {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Book not found"));
@@ -175,6 +179,15 @@ public class BookServiceImpl implements BookService {
     }
 
     @Override
+    @Cacheable("categories")
+    public java.util.List<String> getCategories() {
+        return categoryRepository.findAll().stream()
+                .map(Category::getName)
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public void deleteBook(UUID id) {
         Book book = bookRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Book not found"));
@@ -200,6 +213,8 @@ public class BookServiceImpl implements BookService {
         long totalCopies = book.getCopies().size();
         long issuedCopies = book.getCopies().stream()
                 .filter(c -> CopyStatus.ISSUED.equals(c.getStatus())).count();
+        long lostCopies = book.getCopies().stream()
+                .filter(c -> CopyStatus.LOST.equals(c.getStatus())).count();
         long activeHolds = reservationRepository.countByBook_BookIdAndStatus(book.getBookId(), "active");
 
         return BookResponse.builder()
@@ -212,7 +227,7 @@ public class BookServiceImpl implements BookService {
                 .authors(authorNames)
                 .publisher(book.getPublisher() != null ? book.getPublisher().getName() : null)
                 .isActive(book.getIsActive())
-                .trueAvailableStock(Math.max(0, totalCopies - issuedCopies - activeHolds))
+                .trueAvailableStock(Math.max(0, totalCopies - issuedCopies - lostCopies - activeHolds))
                 .build();
     }
 }

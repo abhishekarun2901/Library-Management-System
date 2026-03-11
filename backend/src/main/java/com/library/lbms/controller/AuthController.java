@@ -1,9 +1,11 @@
 package com.library.lbms.controller;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -21,6 +23,7 @@ import com.library.lbms.dto.response.UserResponse;
 import com.library.lbms.security.JwtService;
 import com.library.lbms.service.UserService;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -39,7 +42,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request, HttpServletResponse response) {
 
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
@@ -61,12 +64,36 @@ public class AuthController {
                 ? createdAt.format(DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.ENGLISH))
                 : null;
 
+        java.util.UUID userId = userService.getUserIdByEmail(request.getEmail());
+
+        // Set HttpOnly cookie — JS cannot read this token
+        ResponseCookie cookie = ResponseCookie.from("jwt", jwtToken)
+                .httpOnly(true)
+                .secure(false)          // set true in production (HTTPS)
+                .path("/")
+                .maxAge(Duration.ofDays(7))
+                .sameSite("Lax")
+                .build();
+        response.addHeader("Set-Cookie", cookie.toString());
+
         return ResponseEntity.ok(AuthResponse.builder()
-                .token(jwtToken)
-                .type("Bearer")
+                .userId(userId != null ? userId.toString() : null)
                 .role(role)
                 .fullName(fullName)
                 .memberSince(memberSince)
                 .build());
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletResponse response) {
+        ResponseCookie clearCookie = ResponseCookie.from("jwt", "")
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+        response.addHeader("Set-Cookie", clearCookie.toString());
+        return ResponseEntity.noContent().build();
     }
 }

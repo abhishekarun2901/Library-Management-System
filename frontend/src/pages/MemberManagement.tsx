@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { Badge, Button, Input, Select } from '../components/ui'
+import { Badge, Button, Input, SearchInput, Select } from '../components/ui'
 import { AppLayout, PageHeader } from '../components/layout'
 import {
   FormField,
@@ -16,20 +16,19 @@ import {
   registerUser,
   updateUser,
   deleteUser,
+  getCurrentUser,
   type UserResponse,
 } from '../services/userService'
 
-type Status = 'active' | 'blacklisted' | 'inactive'
+type Status = 'active' | 'blacklisted'
 
-const statusBadgeVariant: Record<Status, 'available' | 'overdue' | 'pending'> =
-  {
-    active: 'available',
-    blacklisted: 'overdue',
-    inactive: 'pending',
-  }
+const statusBadgeVariant: Record<Status, 'available' | 'overdue'> = {
+  active: 'available',
+  blacklisted: 'overdue',
+}
 
 const deriveStatus = (user: UserResponse): Status => {
-  if (!user.isActive) return user.blacklistReason ? 'blacklisted' : 'inactive'
+  if (!user.isActive || user.blacklistReason) return 'blacklisted'
   return 'active'
 }
 
@@ -46,8 +45,9 @@ const emptyEditForm = { name: '', isActive: true, blacklistReason: '' }
 const ITEMS_PER_PAGE = 8
 
 export const MemberManagement = () => {
-  const { token } = useAuthStore()
+  const { isAuthenticated } = useAuthStore()
 
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [members, setMembers] = useState<UserResponse[]>([])
   const [totalElements, setTotalElements] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -55,6 +55,7 @@ export const MemberManagement = () => {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [isEditOpen, setIsEditOpen] = useState(false)
@@ -63,9 +64,11 @@ export const MemberManagement = () => {
   const [editForm, setEditForm] = useState(emptyEditForm)
   const [saving, setSaving] = useState(false)
   const [showSuccess, setShowSuccess] = useState<string | null>(null)
+  const [showError, setShowError] = useState<string | null>(null)
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<UserResponse | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   const [isBlacklistOpen, setIsBlacklistOpen] = useState(false)
@@ -75,10 +78,20 @@ export const MemberManagement = () => {
   const [blacklistReasonInput, setBlacklistReasonInput] = useState('')
   const [blacklisting, setBlacklisting] = useState(false)
 
-  const loadMembers = (page: number) => {
-    if (!token) return
+  useEffect(() => {
+    if (!isAuthenticated) return
+    getCurrentUser()
+      .then((u) => setCurrentUserId(u.userId))
+      .catch(console.error)
+  }, [isAuthenticated])
+
+  const loadMembers = (page: number, searchQuery = search) => {
     setLoading(true)
-    getUsers({ page: page - 1, size: ITEMS_PER_PAGE }, token)
+    getUsers({
+      page: page - 1,
+      size: ITEMS_PER_PAGE,
+      search: searchQuery || undefined,
+    })
       .then((data) => {
         setMembers(data.content)
         setTotalElements(data.totalElements)
@@ -90,11 +103,11 @@ export const MemberManagement = () => {
 
   useEffect(() => {
     loadMembers(1)
-  }, [token])
+  }, [isAuthenticated])
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
-    loadMembers(page)
+    loadMembers(page, search)
   }
 
   /** Immediately updates a member in local state (optimistic UI). */
@@ -105,43 +118,35 @@ export const MemberManagement = () => {
   }
 
   const handleAdd = async () => {
-    if (!token) return
     setSaving(true)
     try {
-      await registerUser(
-        {
-          email: form.email,
-          password: form.password,
-          fullName: form.name,
-          role: form.role || 'member',
-        },
-        token
-      )
+      await registerUser({
+        email: form.email,
+        password: form.password,
+        fullName: form.name,
+        role: form.role || 'member',
+      })
       setShowSuccess(`Member "${form.name}" registered successfully.`)
       setForm(emptyForm)
       setIsAddOpen(false)
       setCurrentPage(1)
       loadMembers(1)
     } catch (e: unknown) {
-      setShowSuccess(e instanceof Error ? e.message : 'Failed to add member.')
+      setShowError(e instanceof Error ? e.message : 'Failed to add member.')
     } finally {
       setSaving(false)
     }
   }
 
   const handleEdit = async () => {
-    if (!token || !editingMember) return
+    if (!editingMember) return
     setSaving(true)
     try {
-      await updateUser(
-        editingMember.userId,
-        {
-          fullName: editForm.name || undefined,
-          isActive: editForm.isActive,
-          blacklistReason: editForm.blacklistReason || null,
-        },
-        token
-      )
+      await updateUser(editingMember.userId, {
+        fullName: editForm.name || undefined,
+        isActive: editForm.isActive,
+        blacklistReason: editForm.blacklistReason || null,
+      })
       patchMember(editingMember.userId, {
         fullName: editForm.name || editingMember.fullName,
         isActive: editForm.isActive,
@@ -154,9 +159,7 @@ export const MemberManagement = () => {
       setEditForm(emptyEditForm)
       setIsEditOpen(false)
     } catch (e: unknown) {
-      setShowSuccess(
-        e instanceof Error ? e.message : 'Failed to update member.'
-      )
+      setShowError(e instanceof Error ? e.message : 'Failed to update member.')
     } finally {
       setSaving(false)
     }
@@ -178,44 +181,16 @@ export const MemberManagement = () => {
   }
 
   const handleSetActive = async (member: UserResponse) => {
-    if (!token) return
     patchMember(member.userId, { isActive: true, blacklistReason: null })
     try {
-      await updateUser(
-        member.userId,
-        { isActive: true, blacklistReason: null },
-        token
-      )
+      await updateUser(member.userId, { isActive: true, blacklistReason: null })
       setShowSuccess(`${member.fullName} is now Active.`)
     } catch (e) {
       patchMember(member.userId, {
         isActive: member.isActive,
         blacklistReason: member.blacklistReason,
       })
-      setShowSuccess(
-        e instanceof Error ? e.message : 'Failed to update status.'
-      )
-    }
-  }
-
-  const handleSetInactive = async (member: UserResponse) => {
-    if (!token) return
-    patchMember(member.userId, { isActive: false, blacklistReason: null })
-    try {
-      await updateUser(
-        member.userId,
-        { isActive: false, blacklistReason: null },
-        token
-      )
-      setShowSuccess(`${member.fullName} is now Inactive.`)
-    } catch (e) {
-      patchMember(member.userId, {
-        isActive: member.isActive,
-        blacklistReason: member.blacklistReason,
-      })
-      setShowSuccess(
-        e instanceof Error ? e.message : 'Failed to update status.'
-      )
+      setShowError(e instanceof Error ? e.message : 'Failed to update status.')
     }
   }
 
@@ -226,7 +201,7 @@ export const MemberManagement = () => {
   }
 
   const handleBlacklist = async () => {
-    if (!token || !blacklistTarget) return
+    if (!blacklistTarget) return
     setBlacklisting(true)
     const reason = blacklistReasonInput.trim() || 'Blacklisted by admin'
     patchMember(blacklistTarget.userId, {
@@ -234,11 +209,10 @@ export const MemberManagement = () => {
       blacklistReason: reason,
     })
     try {
-      await updateUser(
-        blacklistTarget.userId,
-        { isActive: false, blacklistReason: reason },
-        token
-      )
+      await updateUser(blacklistTarget.userId, {
+        isActive: false,
+        blacklistReason: reason,
+      })
       setShowSuccess(`${blacklistTarget.fullName} has been blacklisted.`)
       setIsBlacklistOpen(false)
       setBlacklistTarget(null)
@@ -248,7 +222,7 @@ export const MemberManagement = () => {
         isActive: blacklistTarget.isActive,
         blacklistReason: blacklistTarget.blacklistReason,
       })
-      setShowSuccess(
+      setShowError(
         e instanceof Error ? e.message : 'Failed to blacklist member.'
       )
     } finally {
@@ -257,19 +231,19 @@ export const MemberManagement = () => {
   }
 
   const handleDeleteMember = async () => {
-    if (!token || !deleteTarget) return
+    if (!deleteTarget) return
     setDeleting(true)
+    setDeleteError(null)
     try {
-      await deleteUser(deleteTarget.userId, token)
+      await deleteUser(deleteTarget.userId)
       setMembers((prev) => prev.filter((m) => m.userId !== deleteTarget.userId))
       setTotalElements((prev) => prev - 1)
-      setShowSuccess(
-        `Member "${deleteTarget.fullName}" has been permanently removed.`
-      )
+      setShowSuccess(`Member "${deleteTarget.fullName}" has been removed.`)
+      setShowError(null)
       setIsDeleteOpen(false)
       setDeleteTarget(null)
     } catch (e: unknown) {
-      setShowSuccess(
+      setDeleteError(
         e instanceof Error ? e.message : 'Failed to delete member.'
       )
     } finally {
@@ -277,23 +251,15 @@ export const MemberManagement = () => {
     }
   }
 
-  // Client-side filter of current page by search/status
-  const filtered = members.filter((m) => {
-    const matchSearch =
-      search.length < 2 ||
-      m.fullName.toLowerCase().includes(search.toLowerCase()) ||
-      m.email.toLowerCase().includes(search.toLowerCase())
-    const matchStatus = !filterStatus || deriveStatus(m) === filterStatus
-    return matchSearch && matchStatus
-  })
+  // Backend handles name/email search; apply status filter client-side on current page
+  const filtered = members.filter(
+    (m) => !filterStatus || deriveStatus(m) === filterStatus
+  )
 
   const activeCount = members.filter(
     (m) => m.isActive && !m.blacklistReason
   ).length
   const blacklistedCount = members.filter((m) => !!m.blacklistReason).length
-  const inactiveCount = members.filter(
-    (m) => !m.isActive && !m.blacklistReason
-  ).length
 
   const isAddFormValid =
     form.name.trim() !== '' &&
@@ -316,36 +282,38 @@ export const MemberManagement = () => {
 
   return (
     <AppLayout sidebarItems={sidebarItems} topbarTitle="Member Management">
-      <div className="w-full space-y-6 p-6 pb-10">
+      <div className="w-full space-y-4 p-4 pb-10 sm:space-y-6 sm:p-6">
         <PageHeader
           title="Member Management"
           description="View, add, and manage library members"
           action={
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={() => {
-                  setForm(emptyForm)
-                  setIsAddOpen(true)
-                }}
-              >
-                Add Member
-              </Button>
-              <Link to="/librarian">
-                <Button variant="secondary">Back to Dashboard</Button>
-              </Link>
-            </div>
+            <Button
+              onClick={() => {
+                setForm(emptyForm)
+                setIsAddOpen(true)
+              }}
+            >
+              Add Member
+            </Button>
           }
         />
 
         {showSuccess ? (
           <Banner
             title={showSuccess}
-            variant="info"
+            variant="success"
             onClose={() => setShowSuccess(null)}
           />
         ) : null}
+        {showError ? (
+          <Banner
+            title={showError}
+            variant="danger"
+            onClose={() => setShowError(null)}
+          />
+        ) : null}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-3 gap-3 sm:gap-4">
           {[
             {
               label: 'Total Members',
@@ -362,18 +330,17 @@ export const MemberManagement = () => {
               value: String(blacklistedCount),
               color: 'text-red-600',
             },
-            {
-              label: 'Inactive',
-              value: String(inactiveCount),
-              color: 'text-yellow-600',
-            },
           ].map(({ label, value, color }) => (
             <div
               key={label}
-              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+              className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white p-3 text-center shadow-sm sm:p-5"
             >
-              <p className="text-sm text-gray-500">{label}</p>
-              <p className={`mt-1 text-2xl font-semibold ${color}`}>{value}</p>
+              <p className="text-xs text-gray-500 sm:text-sm">{label}</p>
+              <p
+                className={`mt-0.5 text-xl font-bold sm:mt-1 sm:text-3xl ${color}`}
+              >
+                {value}
+              </p>
             </div>
           ))}
         </div>
@@ -382,40 +349,38 @@ export const MemberManagement = () => {
           title="Search Members"
           description="Find members by name or email"
         >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
-            <div className="sm:col-span-6">
-              <Input
-                placeholder="Search by name or email…"
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="sm:col-span-3">
-              <Select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                placeholder="All"
-                options={[
-                  { label: 'All', value: '' },
-                  { label: 'Active', value: 'active' },
-                  { label: 'Blacklisted', value: 'blacklisted' },
-                  { label: 'Inactive', value: 'inactive' },
-                ]}
-              />
-            </div>
-            <div className="sm:col-span-3">
-              <Button
-                className="w-full"
-                variant="secondary"
-                onClick={() => {
-                  setSearch('')
-                  setFilterStatus('')
-                }}
-              >
-                Clear
-              </Button>
-            </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <SearchInput
+              className="flex-1"
+              placeholder="Search by name or email…"
+              value={search}
+              onChange={(e) => {
+                const val = e.target.value
+                setSearch(val)
+                setCurrentPage(1)
+                if (searchDebounceRef.current)
+                  clearTimeout(searchDebounceRef.current)
+                searchDebounceRef.current = setTimeout(
+                  () => loadMembers(1, val),
+                  350
+                )
+              }}
+              onClear={() => {
+                setSearch('')
+                setCurrentPage(1)
+                loadMembers(1, '')
+              }}
+            />
+            <Select
+              className="sm:w-44"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              options={[
+                { label: 'All Status', value: '' },
+                { label: 'Active', value: 'active' },
+                { label: 'Blacklisted', value: 'blacklisted' },
+              ]}
+            />
           </div>
         </SearchCard>
 
@@ -440,6 +405,7 @@ export const MemberManagement = () => {
           <div className="space-y-3">
             {filtered.map((member) => {
               const status = deriveStatus(member)
+              const isSelf = member.userId === currentUserId
               return (
                 <ListItemCard
                   key={member.userId}
@@ -451,14 +417,14 @@ export const MemberManagement = () => {
                       : undefined
                   }
                   action={
-                    <div className="flex flex-wrap items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
                       <Badge
                         label={status.charAt(0).toUpperCase() + status.slice(1)}
                         variant={statusBadgeVariant[status]}
                       />
                       <div className="flex items-center gap-1">
                         <button
-                          disabled={status === 'active'}
+                          disabled={status === 'active' || isSelf}
                           onClick={() => handleSetActive(member)}
                           title="Set Active"
                           className="rounded-md border border-green-300 px-2 py-1 text-xs font-medium text-green-700 transition hover:bg-green-50 disabled:cursor-not-allowed disabled:opacity-35"
@@ -466,36 +432,29 @@ export const MemberManagement = () => {
                           Activate
                         </button>
                         <button
-                          disabled={status === 'inactive'}
-                          onClick={() => handleSetInactive(member)}
-                          title="Set Inactive"
-                          className="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-35"
-                        >
-                          Deactivate
-                        </button>
-                        <button
-                          disabled={status === 'blacklisted'}
+                          disabled={status === 'blacklisted' || isSelf}
                           onClick={() => openBlacklist(member)}
                           title="Blacklist member"
                           className="rounded-md border border-orange-300 px-2 py-1 text-xs font-medium text-orange-600 transition hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-35"
                         >
                           Blacklist
                         </button>
+                        <Button
+                          variant="secondary"
+                          className="text-xs"
+                          onClick={() => openEdit(member)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          className="text-xs text-red-600 hover:text-red-700"
+                          onClick={() => openDelete(member)}
+                          disabled={isSelf}
+                        >
+                          Delete
+                        </Button>
                       </div>
-                      <Button
-                        variant="secondary"
-                        className="text-xs"
-                        onClick={() => openEdit(member)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        className="text-xs text-red-600 hover:text-red-700"
-                        onClick={() => openDelete(member)}
-                      >
-                        Delete
-                      </Button>
                     </div>
                   }
                 />
@@ -661,13 +620,14 @@ export const MemberManagement = () => {
         </div>
       </Modal>
 
-      {/* Delete Member Modal (Soft Delete) */}
+      {/* Delete Member Modal */}
       <Modal
         open={isDeleteOpen}
         title="Delete Member"
         onClose={() => {
           setIsDeleteOpen(false)
           setDeleteTarget(null)
+          setDeleteError(null)
         }}
         primaryAction={
           <Button
@@ -679,13 +639,17 @@ export const MemberManagement = () => {
           </Button>
         }
       >
+        {deleteError ? (
+          <div className="mb-3 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">
+            {deleteError}
+          </div>
+        ) : null}
         <p className="text-sm text-gray-600">
-          Are you sure you want to permanently delete{' '}
+          Are you sure you want to delete{' '}
           <span className="font-semibold text-gray-900">
             {deleteTarget?.fullName}
           </span>
-          ? This is a soft delete — the account will be removed from the system
-          and can only be restored directly in the database.
+          ? This action will remove them from the system.
         </p>
       </Modal>
 
@@ -718,13 +682,7 @@ export const MemberManagement = () => {
             <FormField label="Account Status" htmlFor="edit-status">
               <Select
                 id="edit-status"
-                value={
-                  editForm.isActive
-                    ? 'active'
-                    : editForm.blacklistReason
-                      ? 'blacklisted'
-                      : 'inactive'
-                }
+                value={editForm.isActive ? 'active' : 'blacklisted'}
                 onChange={(e) => {
                   const v = e.target.value
                   if (v === 'active')
@@ -733,17 +691,10 @@ export const MemberManagement = () => {
                       isActive: true,
                       blacklistReason: '',
                     })
-                  else if (v === 'inactive')
-                    setEditForm({
-                      ...editForm,
-                      isActive: false,
-                      blacklistReason: '',
-                    })
                   else setEditForm({ ...editForm, isActive: false })
                 }}
                 options={[
                   { label: 'Active', value: 'active' },
-                  { label: 'Inactive', value: 'inactive' },
                   { label: 'Blacklisted', value: 'blacklisted' },
                 ]}
               />
@@ -754,7 +705,7 @@ export const MemberManagement = () => {
                 htmlFor="edit-blacklist"
                 helperText={
                   editForm.blacklistReason
-                    ? 'Clear this field to switch to plain inactive'
+                    ? 'Required for blacklisted status'
                     : 'Enter a reason to mark as blacklisted'
                 }
               >

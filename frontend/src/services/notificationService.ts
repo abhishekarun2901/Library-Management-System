@@ -8,12 +8,10 @@ export type NotificationResponse = {
   createdAt: string
 }
 
-export const getNotifications = (token: string) =>
-  apiFetch<NotificationResponse[]>('/v1/notifications', {}, token)
+export const getNotifications = () =>
+  apiFetch<NotificationResponse[]>('/v1/notifications')
 
-export const markNotificationRead = (notificationId: string, token: string) =>
-  apiFetch<void>(
-    `/v1/notifications/${notificationId}/mark-read`,
-    { method: 'POST' },
-    token
-  )
+export const markNotificationRead = (notificationId: string) =>
+  apiFetch<void>(`/v1/notifications/${notificationId}/mark-read`, {
+    method: 'POST',
+  })

@@ -10,5 +10,4 @@ export type ReportResponse = {
   lostCount: number
 }
 
-export const getReports = (token: string) =>
-  apiFetch<ReportResponse>('/v1/reports', {}, token)
+export const getReports = () => apiFetch<ReportResponse>('/v1/reports')

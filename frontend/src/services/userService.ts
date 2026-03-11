@@ -25,6 +25,7 @@ export type TransactionResponse = {
   user_id: string
   copy_id: string
   bookTitle: string | null
+  memberName: string | null
   checkout_date: string | null
   due_date: string | null
   return_date: string | null
@@ -60,57 +61,45 @@ export type CreateUserPayload = {
 
 // ── API calls ─────────────────────────────────────────────────────────────────
 
-export const getUsers = (
-  params: {
-    page?: number
-    size?: number
-    sortBy?: string
-    sortDir?: string
-  },
-  token: string
-) => {
+export const getUsers = (params: {
+  page?: number
+  size?: number
+  sortBy?: string
+  sortDir?: string
+  search?: string
+}) => {
   const q = new URLSearchParams()
   q.set('page', String(params.page ?? 0))
   q.set('size', String(params.size ?? 50))
   if (params.sortBy) q.set('sortBy', params.sortBy)
   if (params.sortDir) q.set('sortDir', params.sortDir)
-  return apiFetch<UserPage>(`/v1/users?${q}`, {}, token)
+  if (params.search) q.set('search', params.search)
+  return apiFetch<UserPage>(`/v1/users?${q}`)
 }
 
-export const getCurrentUser = (token: string) =>
-  apiFetch<UserResponse>('/v1/users?scope=me', {}, token)
+export const getCurrentUser = () => apiFetch<UserResponse>('/v1/users?scope=me')
 
-export const getUserHistory = (token: string, userId?: string) => {
+export const getUserHistory = (userId?: string) => {
   const q = userId ? `&userId=${userId}` : ''
-  return apiFetch<TransactionResponse[]>(
-    `/v1/users?scope=history${q}`,
-    {},
-    token
-  )
+  return apiFetch<TransactionResponse[]>(`/v1/users?scope=history${q}`)
 }
 
-export const getUserFines = (token: string, userId?: string) => {
+export const getUserFines = (userId?: string) => {
   const q = userId ? `&userId=${userId}` : ''
-  return apiFetch<FineResponse[]>(`/v1/users?scope=fines${q}`, {}, token)
+  return apiFetch<FineResponse[]>(`/v1/users?scope=fines${q}`)
 }
 
-export const updateUser = (
-  id: string,
-  payload: UpdateUserPayload,
-  token: string
-) =>
-  apiFetch<UserResponse>(
-    `/v1/users/${id}`,
-    { method: 'PATCH', body: JSON.stringify(payload) },
-    token
-  )
+export const updateUser = (id: string, payload: UpdateUserPayload) =>
+  apiFetch<UserResponse>(`/v1/users/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
 
-export const deleteUser = (id: string, token: string) =>
-  apiFetch<void>(`/v1/users/${id}`, { method: 'DELETE' }, token)
+export const deleteUser = (id: string) =>
+  apiFetch<void>(`/v1/users/${id}`, { method: 'DELETE' })
 
-export const registerUser = (payload: CreateUserPayload, token: string) =>
-  apiFetch<UserResponse>(
-    '/v1/auth/register',
-    { method: 'POST', body: JSON.stringify(payload) },
-    token
-  )
+export const registerUser = (payload: CreateUserPayload) =>
+  apiFetch<UserResponse>('/v1/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })

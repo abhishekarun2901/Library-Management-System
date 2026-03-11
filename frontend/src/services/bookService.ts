@@ -58,19 +58,16 @@ export type UpdateBookPayload = {
 
 // ── API calls ─────────────────────────────────────────────────────────────────
 
-export const getBooks = (
-  params: {
-    title?: string
-    author?: string
-    isbn?: string
-    category?: string
-    search?: string
-    page?: number
-    size?: number
-    sortBy?: string
-  },
-  token?: string
-) => {
+export const getBooks = (params: {
+  title?: string
+  author?: string
+  isbn?: string
+  category?: string
+  search?: string
+  page?: number
+  size?: number
+  sortBy?: string
+}) => {
   const q = new URLSearchParams()
   if (params.title) q.set('title', params.title)
   if (params.author) q.set('author', params.author)
@@ -80,50 +77,43 @@ export const getBooks = (
   q.set('page', String(params.page ?? 0))
   q.set('size', String(params.size ?? 12))
   if (params.sortBy) q.set('sortBy', params.sortBy)
-  return apiFetch<BookPage>(`/v1/books?${q}`, {}, token)
+  return apiFetch<BookPage>(`/v1/books?${q}`)
 }
 
-export const createBook = (payload: CreateBookPayload, token: string) =>
-  apiFetch<BookResponse>(
-    '/v1/books',
-    { method: 'POST', body: JSON.stringify(payload) },
-    token
-  )
+export const createBook = (payload: CreateBookPayload) =>
+  apiFetch<BookResponse>('/v1/books', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 
-export const updateBook = (
-  id: string,
-  payload: UpdateBookPayload,
-  token: string
-) =>
-  apiFetch<BookResponse>(
-    `/v1/books/${id}`,
-    { method: 'PATCH', body: JSON.stringify(payload) },
-    token
-  )
+export const updateBook = (id: string, payload: UpdateBookPayload) =>
+  apiFetch<BookResponse>(`/v1/books/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
 
-export const deleteBook = (id: string, token: string) =>
-  apiFetch<void>(`/v1/books/${id}`, { method: 'DELETE' }, token)
+export const deleteBook = (id: string) =>
+  apiFetch<void>(`/v1/books/${id}`, { method: 'DELETE' })
 
-export const getCopies = (bookId: string, token: string) =>
-  apiFetch<CopyResponse[]>(`/v1/copies?book_id=${bookId}`, {}, token)
+export const getCategories = () => apiFetch<string[]>(`/v1/books/categories`)
 
-export const createCopy = (bookId: string, token: string) =>
-  apiFetch<CopyResponse>(
-    `/v1/copies?book_id=${bookId}`,
-    { method: 'POST', body: JSON.stringify({ status: 'AVAILABLE' }) },
-    token
-  )
+export const getCopies = (bookId: string) =>
+  apiFetch<CopyResponse[]>(`/v1/copies?book_id=${bookId}`)
+
+export const createCopy = (bookId: string) =>
+  apiFetch<CopyResponse>(`/v1/copies?book_id=${bookId}`, {
+    method: 'POST',
+    body: JSON.stringify({ status: 'AVAILABLE' }),
+  })
 
 export const updateCopyStatus = (
   copyId: string,
-  status: 'AVAILABLE' | 'LOST',
-  token: string
+  status: 'AVAILABLE' | 'LOST'
 ) =>
-  apiFetch<CopyResponse>(
-    `/v1/copies/${copyId}`,
-    { method: 'PATCH', body: JSON.stringify({ status }) },
-    token
-  )
+  apiFetch<CopyResponse>(`/v1/copies/${copyId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  })
 
-export const deleteCopy = (copyId: string, token: string) =>
-  apiFetch<void>(`/v1/copies/${copyId}`, { method: 'DELETE' }, token)
+export const deleteCopy = (copyId: string) =>
+  apiFetch<void>(`/v1/copies/${copyId}`, { method: 'DELETE' })

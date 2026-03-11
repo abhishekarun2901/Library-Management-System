@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { Badge, Button, Input, Select } from '../components/ui'
+import { Badge, Button, SearchInput, Select } from '../components/ui'
 import { AppLayout, PageHeader } from '../components/layout'
 import { SearchCard, Banner } from '../components/composite'
 import { Modal } from '../components/overlay'
@@ -46,7 +46,7 @@ const fmtDate = (d: string | null | undefined) =>
 export const ReservationsPage = ({
   role = 'member',
 }: ReservationsPageProps) => {
-  const { token } = useAuthStore()
+  const { isAuthenticated } = useAuthStore()
   const sidebarItems =
     role === 'librarian' ? librarianSidebarItems : memberSidebarItems
   const topbarTitle = role === 'librarian' ? 'Reservations' : 'My Reservations'
@@ -64,19 +64,34 @@ export const ReservationsPage = ({
   const [resPage, setResPage] = useState(1)
   const RES_PER_PAGE = 10
 
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [displaySearch, setDisplaySearch] = useState('')
+
+  const handleSearchChange = (value: string) => {
+    setDisplaySearch(value)
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    searchDebounceRef.current = setTimeout(() => {
+      setSearch(value)
+      setResPage(1)
+    }, 300)
+  }
+
   useEffect(() => {
-    if (!token) return
-    getReservations(token)
+    if (!isAuthenticated) return
+    getReservations()
       .then(setReservations)
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [token])
+  }, [isAuthenticated])
+
+  useEffect(() => {
+    setResPage(1)
+  }, [filterStatus])
 
   const handleMarkFulfilled = async (res: ReservationResponse) => {
-    if (!token) return
     setActionLoading(res.reservationId)
     try {
-      await updateReservationStatus(res.reservationId, 'fulfilled', token)
+      await updateReservationStatus(res.reservationId, 'fulfilled')
       setReservations((prev) =>
         prev.map((r) =>
           r.reservationId === res.reservationId
@@ -85,10 +100,12 @@ export const ReservationsPage = ({
         )
       )
       setSuccessMessage(
-        `Reservation for "${res.bookTitle}" marked as fulfilled.`
+        `"${res.bookTitle}" has been issued to the member. Reservation fulfilled.`
       )
-    } catch {
-      setSuccessMessage('Failed to fulfill reservation.')
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : 'Failed to fulfill reservation.'
+      setSuccessMessage(msg)
     } finally {
       setActionLoading(null)
     }
@@ -100,10 +117,10 @@ export const ReservationsPage = ({
   }
 
   const handleConfirmCancel = async () => {
-    if (!cancelTarget || !token) return
+    if (!cancelTarget) return
     setActionLoading(cancelTarget.reservationId)
     try {
-      await cancelReservation(cancelTarget.reservationId, token)
+      await cancelReservation(cancelTarget.reservationId)
       setReservations((prev) =>
         prev.map((r) =>
           r.reservationId === cancelTarget.reservationId
@@ -126,10 +143,27 @@ export const ReservationsPage = ({
   const filtered = reservations.filter((r) => {
     const q = search.toLowerCase()
     const matchSearch =
-      search.length < 2 || r.bookTitle.toLowerCase().includes(q)
+      search.length < 2 ||
+      r.bookTitle.toLowerCase().includes(q) ||
+      (r.memberName ?? '').toLowerCase().includes(q)
     const matchStatus = !filterStatus || r.status === filterStatus
     return matchSearch && matchStatus
   })
+
+  const resTotalPages = Math.max(1, Math.ceil(filtered.length / RES_PER_PAGE))
+  const getResPageNumbers = (): (number | '...')[] => {
+    const pages: (number | '...')[] = []
+    if (resTotalPages <= 7)
+      return Array.from({ length: resTotalPages }, (_, i) => i + 1)
+    pages.push(1)
+    if (resPage > 4) pages.push('...')
+    const s = Math.max(2, resPage - 2)
+    const e = Math.min(resTotalPages - 1, resPage + 2)
+    for (let i = s; i <= e; i++) pages.push(i)
+    if (resPage < resTotalPages - 3) pages.push('...')
+    pages.push(resTotalPages)
+    return pages
+  }
 
   const activeCount = reservations.filter((r) => r.status === 'active').length
   const fulfilledCount = reservations.filter(
@@ -153,9 +187,6 @@ export const ReservationsPage = ({
                   <Button>Reserve a Book</Button>
                 </Link>
               )}
-              <Link to={role === 'librarian' ? '/librarian' : '/member'}>
-                <Button variant="secondary">Back to Dashboard</Button>
-              </Link>
             </div>
           }
         />
@@ -215,39 +246,30 @@ export const ReservationsPage = ({
               : 'Filter by book title'
           }
         >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
-            <div className="sm:col-span-6">
-              <Input
-                placeholder="Search by book title…"
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="sm:col-span-3">
-              <Select
-                placeholder="All Status"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                options={[
-                  { label: 'Active', value: 'active' },
-                  { label: 'Fulfilled', value: 'fulfilled' },
-                  { label: 'Expired', value: 'expired' },
-                  { label: 'Cancelled', value: 'cancelled' },
-                ]}
-              />
-            </div>
-            <div className="flex items-end sm:col-span-3">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setSearch('')
-                  setFilterStatus('')
-                }}
-              >
-                Clear Filters
-              </Button>
-            </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <SearchInput
+              className="flex-1"
+              placeholder="Search by book title or member name…"
+              value={displaySearch}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onClear={() => {
+                setDisplaySearch('')
+                setSearch('')
+                setResPage(1)
+              }}
+            />
+            <Select
+              className="sm:w-44"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              options={[
+                { label: 'All Status', value: '' },
+                { label: 'Active', value: 'active' },
+                { label: 'Fulfilled', value: 'fulfilled' },
+                { label: 'Expired', value: 'expired' },
+                { label: 'Cancelled', value: 'cancelled' },
+              ]}
+            />
           </div>
         </SearchCard>
 
@@ -255,6 +277,11 @@ export const ReservationsPage = ({
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm text-gray-500">
               Showing{' '}
+              <span className="font-medium text-gray-900">
+                {Math.min(resPage * RES_PER_PAGE, filtered.length) -
+                  (resPage - 1) * RES_PER_PAGE}
+              </span>{' '}
+              of{' '}
               <span className="font-medium text-gray-900">
                 {filtered.length}
               </span>{' '}
@@ -271,16 +298,6 @@ export const ReservationsPage = ({
               <p className="text-gray-500">
                 No reservations found matching your criteria.
               </p>
-              <Button
-                variant="secondary"
-                className="mt-4"
-                onClick={() => {
-                  setSearch('')
-                  setFilterStatus('')
-                }}
-              >
-                Clear Filters
-              </Button>
             </div>
           ) : (
             <>
@@ -291,11 +308,13 @@ export const ReservationsPage = ({
                       <th className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
                         Book
                       </th>
+                      {role === 'librarian' && (
+                        <th className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                          Member
+                        </th>
+                      )}
                       <th className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
                         Reserved On
-                      </th>
-                      <th className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                        Expires
                       </th>
                       <th className="whitespace-nowrap px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
                         Status / Actions
@@ -313,21 +332,24 @@ export const ReservationsPage = ({
                           key={res.reservationId}
                           className="hover:bg-gray-50/60"
                         >
-                          <td className="px-4 py-4">
-                            <span className="font-semibold text-gray-900">
+                          <td className="px-4 py-4 max-w-[220px]">
+                            <span
+                              className="block truncate font-semibold text-gray-900"
+                              title={res.bookTitle}
+                            >
                               {res.bookTitle}
                             </span>
                           </td>
+                          {role === 'librarian' && (
+                            <td className="whitespace-nowrap px-4 py-4 text-gray-700">
+                              {res.memberName ?? '—'}
+                            </td>
+                          )}
                           <td className="whitespace-nowrap px-4 py-4 text-gray-700">
                             {fmtDate(res.reservedAt)}
                           </td>
-                          <td
-                            className={`whitespace-nowrap px-4 py-4 font-medium ${res.status === 'active' ? 'text-amber-600' : 'text-gray-700'}`}
-                          >
-                            {fmtDate(res.expiresAt)}
-                          </td>
                           <td className="px-4 py-4">
-                            <div className="flex flex-col items-start gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <Badge
                                 label={statusLabel[res.status] ?? res.status}
                                 variant={
@@ -335,7 +357,7 @@ export const ReservationsPage = ({
                                 }
                               />
                               {res.status === 'active' && (
-                                <div className="flex items-center gap-2">
+                                <>
                                   {role === 'librarian' && (
                                     <Button
                                       className="px-3 py-1.5 text-xs bg-green-600 hover:bg-green-700"
@@ -357,7 +379,7 @@ export const ReservationsPage = ({
                                   >
                                     Cancel
                                   </Button>
-                                </div>
+                                </>
                               )}
                             </div>
                           </td>
@@ -366,23 +388,51 @@ export const ReservationsPage = ({
                   </tbody>
                 </table>
               </div>
-              {Math.ceil(filtered.length / RES_PER_PAGE) > 1 && (
-                <div className="flex items-center justify-end border-t border-gray-200 pt-3">
-                  <div className="flex gap-1">
+              {resTotalPages > 1 && (
+                <div className="mt-4 flex flex-col items-center gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:justify-between">
+                  <p className="text-sm text-gray-600">
+                    Page{' '}
+                    <span className="font-medium text-gray-900">{resPage}</span>{' '}
+                    of{' '}
+                    <span className="font-medium text-gray-900">
+                      {resTotalPages}
+                    </span>
+                  </p>
+                  <div className="flex items-center gap-1">
                     <Button
                       variant="secondary"
                       className="px-3 py-1.5 text-xs"
                       disabled={resPage === 1}
                       onClick={() => setResPage((p) => p - 1)}
                     >
-                      ← Prev
+                      ← Previous
                     </Button>
+                    {getResPageNumbers().map((page, idx) =>
+                      page === '...' ? (
+                        <span
+                          key={`e${idx}`}
+                          className="px-2 text-sm text-gray-400"
+                        >
+                          …
+                        </span>
+                      ) : (
+                        <button
+                          key={page}
+                          onClick={() => setResPage(page as number)}
+                          className={`min-w-[2rem] rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                            resPage === page
+                              ? 'border-indigo-600 bg-indigo-600 text-white'
+                              : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      )
+                    )}
                     <Button
                       variant="secondary"
                       className="px-3 py-1.5 text-xs"
-                      disabled={
-                        resPage >= Math.ceil(filtered.length / RES_PER_PAGE)
-                      }
+                      disabled={resPage === resTotalPages}
                       onClick={() => setResPage((p) => p + 1)}
                     >
                       Next →

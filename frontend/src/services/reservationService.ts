@@ -7,6 +7,7 @@ export type ReservationResponse = {
   userId: string
   bookId: string
   bookTitle: string
+  memberName: string | null
   reservedAt: string
   expiresAt: string | null
   /** ISO date string (YYYY-MM-DD), present only for scheduled reservations. */
@@ -18,46 +19,32 @@ export type ReservationResponse = {
 
 // ── API calls ─────────────────────────────────────────────────────────────────
 
-export const getReservations = (token: string, userId?: string) => {
+export const getReservations = (userId?: string) => {
   const q = userId ? `?userId=${userId}` : ''
-  return apiFetch<ReservationResponse[]>(`/v1/reservations${q}`, {}, token)
+  return apiFetch<ReservationResponse[]>(`/v1/reservations${q}`)
 }
 
 /**
  * Create a reservation for a book with at least one AVAILABLE copy.
  * The hold expires at midnight of the following day.
  */
-export const createReservation = (
-  userId: string,
-  bookId: string,
-  token: string
-) =>
-  apiFetch<ReservationResponse>(
-    '/v1/reservations',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        userId,
-        bookId,
-      }),
-    },
-    token
-  )
+export const createReservation = (userId: string, bookId: string) =>
+  apiFetch<ReservationResponse>('/v1/reservations', {
+    method: 'POST',
+    body: JSON.stringify({
+      userId,
+      bookId,
+    }),
+  })
 
 export const updateReservationStatus = (
   reservationId: string,
-  status: string,
-  token: string
+  status: string
 ) =>
   apiFetch<ReservationResponse>(
     `/v1/reservations/${reservationId}?status=${status}`,
-    { method: 'PATCH' },
-    token
+    { method: 'PATCH' }
   )
 
-export const cancelReservation = (reservationId: string, token: string) =>
-  apiFetch<void>(
-    `/v1/reservations/${reservationId}`,
-    { method: 'DELETE' },
-    token
-  )
+export const cancelReservation = (reservationId: string) =>
+  apiFetch<void>(`/v1/reservations/${reservationId}`, { method: 'DELETE' })

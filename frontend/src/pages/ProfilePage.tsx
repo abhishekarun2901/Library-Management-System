@@ -15,6 +15,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useAuthStore } from '../store/authStore'
+import { loginUser } from '../services/authService'
 import {
   getCurrentUser,
   getUserFines,
@@ -90,7 +91,9 @@ const InfoRow = ({ icon, label, value }: InfoRowProps) => (
 // ── Util ───────────────────────────────────────────────────────────────────────
 
 function showMsg(
-  setter: React.Dispatch<React.SetStateAction<{ ok: boolean; text: string } | null>>,
+  setter: React.Dispatch<
+    React.SetStateAction<{ ok: boolean; text: string } | null>
+  >,
   timer: React.MutableRefObject<ReturnType<typeof setTimeout> | null>,
   msg: { ok: boolean; text: string }
 ) {
@@ -102,19 +105,16 @@ function showMsg(
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export const ProfilePage = () => {
-  const { fullName, token, memberSince, role, setAuth } = useAuthStore()
+  const { fullName, isAuthenticated, memberSince, role, setAuth } =
+    useAuthStore()
 
   const storedName = fullName ?? 'User'
-  let storedEmail = ''
-  try {
-    if (token) {
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      storedEmail = payload.sub ?? ''
-    }
-  } catch { /* ignore */ }
 
   const [userId, setUserId] = useState<string | null>(null)
-  const [profile, setProfile] = useState({ name: storedName, email: storedEmail })
+  const [profile, setProfile] = useState({
+    name: storedName,
+    email: '',
+  })
 
   // ── Stats ──────────────────────────────────────────────────────────────────
   const [totalBorrowed, setTotalBorrowed] = useState<string>('—')
@@ -123,13 +123,13 @@ export const ProfilePage = () => {
   const [outstandingFines, setOutstandingFines] = useState<string>('—')
 
   useEffect(() => {
-    if (!token) return
+    if (!isAuthenticated) return
     Promise.all([
-      getCurrentUser(token),
-      getUserHistory(token),
-      getUserFines(token),
-      getTransactions(token),
-      getReservations(token),
+      getCurrentUser(),
+      getUserHistory(),
+      getUserFines(),
+      getTransactions(),
+      getReservations(),
     ])
       .then(([me, history, fines, txs, reservations]) => {
         setUserId(me.userId)
@@ -147,7 +147,7 @@ export const ProfilePage = () => {
         setOutstandingFines(unpaid > 0 ? `$${unpaid.toFixed(2)}` : '$0.00')
       })
       .catch(console.error)
-  }, [token])
+  }, [isAuthenticated])
 
   const initials = profile.name
     .split(' ')
@@ -161,7 +161,9 @@ export const ProfilePage = () => {
   const [draftName, setDraftName] = useState('')
   const [draftEmail, setDraftEmail] = useState('')
   const [savingInfo, setSavingInfo] = useState(false)
-  const [infoMsg, setInfoMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [infoMsg, setInfoMsg] = useState<{ ok: boolean; text: string } | null>(
+    null
+  )
   const infoMsgTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const openEditInfo = () => {
@@ -177,20 +179,21 @@ export const ProfilePage = () => {
   }
 
   const saveInfo = async () => {
-    if (!token || !userId) return
+    if (!userId) return
     setSavingInfo(true)
     setInfoMsg(null)
     try {
-      const updated = await updateUser(
-        userId,
-        {
-          fullName: draftName.trim() || undefined,
-          email: draftEmail.trim() || undefined,
-        },
-        token
-      )
+      const updated = await updateUser(userId, {
+        fullName: draftName.trim() || undefined,
+        email: draftEmail.trim() || undefined,
+      })
       setProfile({ name: updated.fullName, email: updated.email })
-      setAuth({ token, role, fullName: updated.fullName, memberSince: memberSince ?? null })
+      setAuth({
+        userId: userId ?? null,
+        role,
+        fullName: updated.fullName,
+        memberSince: memberSince ?? null,
+      })
       setIsEditingInfo(false)
       showMsg(setInfoMsg, infoMsgTimer, { ok: true, text: 'Profile updated.' })
     } catch (e) {
@@ -205,8 +208,10 @@ export const ProfilePage = () => {
 
   // ── Change password ────────────────────────────────────────────────────────
   const [isChangingPw, setIsChangingPw] = useState(false)
+  const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw] = useState('')
   const [confirmPw, setConfirmPw] = useState('')
+  const [showCurrentPw, setShowCurrentPw] = useState(false)
   const [showNewPw, setShowNewPw] = useState(false)
   const [showConfirmPw, setShowConfirmPw] = useState(false)
   const [savingPw, setSavingPw] = useState(false)
@@ -214,19 +219,28 @@ export const ProfilePage = () => {
   const pwMsgTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const openChangePw = () => {
+    setCurrentPw('')
     setNewPw('')
     setConfirmPw('')
+    setShowCurrentPw(false)
+    setShowNewPw(false)
+    setShowConfirmPw(false)
     setPwMsg(null)
     setIsChangingPw(true)
   }
 
   const cancelChangePw = () => {
     setIsChangingPw(false)
+    setCurrentPw('')
     setPwMsg(null)
   }
 
   const savePassword = async () => {
-    if (!token || !userId) return
+    if (!userId) return
+    if (!currentPw) {
+      setPwMsg({ ok: false, text: 'Please enter your current password.' })
+      return
+    }
     if (newPw.length < 8) {
       setPwMsg({ ok: false, text: 'Password must be at least 8 characters.' })
       return
@@ -238,9 +252,20 @@ export const ProfilePage = () => {
     setSavingPw(true)
     setPwMsg(null)
     try {
-      await updateUser(userId, { password: newPw }, token)
+      await loginUser({ email: profile.email, password: currentPw })
+    } catch {
+      setSavingPw(false)
+      setPwMsg({ ok: false, text: 'Current password is incorrect.' })
+      return
+    }
+    try {
+      await updateUser(userId, { password: newPw })
       setIsChangingPw(false)
-      showMsg(setPwMsg, pwMsgTimer, { ok: true, text: 'Password changed successfully.' })
+      setCurrentPw('')
+      showMsg(setPwMsg, pwMsgTimer, {
+        ok: true,
+        text: 'Password changed successfully.',
+      })
     } catch (e) {
       setPwMsg({
         ok: false,
@@ -288,13 +313,16 @@ export const ProfilePage = () => {
 
         {/* Cards row */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-
           {/* ── Personal Information ───────────────────────────────────────── */}
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">Personal Information</h3>
-                <p className="text-xs text-gray-500">Your account details on file</p>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Personal Information
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Your account details on file
+                </p>
               </div>
               {!isEditingInfo && (
                 <button
@@ -386,7 +414,9 @@ export const ProfilePage = () => {
           <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">Security</h3>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Security
+                </h3>
                 <p className="text-xs text-gray-500">Manage your password</p>
               </div>
               {!isChangingPw && (
@@ -402,6 +432,27 @@ export const ProfilePage = () => {
             <div className="px-6 py-4">
               {isChangingPw ? (
                 <div className="divide-y divide-gray-100">
+                  <EditField
+                    icon={<Lock className="h-4 w-4" />}
+                    label="Current Password"
+                    value={currentPw}
+                    onChange={setCurrentPw}
+                    type={showCurrentPw ? 'text' : 'password'}
+                    placeholder="Enter your current password"
+                    suffix={
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPw((p) => !p)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        {showCurrentPw ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
+                    }
+                  />
                   <EditField
                     icon={<Lock className="h-4 w-4" />}
                     label="New Password"

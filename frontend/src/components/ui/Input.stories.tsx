@@ -16,9 +16,3 @@ export const Default: Story = {
   }
 }
 
-export const Email: Story = {
-  args: {
-    placeholder: "Enter email",
-    type: "email"
-  }
-}

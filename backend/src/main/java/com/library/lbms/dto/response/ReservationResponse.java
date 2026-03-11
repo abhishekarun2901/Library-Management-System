@@ -17,6 +17,7 @@ public class ReservationResponse {
     private UUID userId;
     private UUID bookId;
     private String bookTitle;
+    private String memberName;
     private LocalDateTime reservedAt;
     private LocalDateTime expiresAt;
     private LocalDate pickupDate;

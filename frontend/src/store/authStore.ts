@@ -4,7 +4,7 @@ import { persist } from 'zustand/middleware'
 export type AuthRole = 'admin' | 'member' | null
 
 export type AuthState = {
-  token: string | null
+  userId: string | null
   role: AuthRole
   fullName: string | null
   memberSince: string | null
@@ -13,7 +13,7 @@ export type AuthState = {
 
 export type AuthActions = {
   setAuth: (payload: {
-    token: string
+    userId: string | null
     role: AuthRole
     fullName: string | null
     memberSince: string | null
@@ -24,7 +24,7 @@ export type AuthActions = {
 export type AuthStore = AuthState & AuthActions
 
 const initialState: AuthState = {
-  token: null,
+  userId: null,
   role: null,
   fullName: null,
   memberSince: null,
@@ -36,16 +36,16 @@ export const useAuthStore = create<AuthStore>()(
     (set) => ({
       ...initialState,
 
-      setAuth: ({ token, role, fullName, memberSince }) =>
-        set({ token, role, fullName, memberSince, isAuthenticated: true }),
+      setAuth: ({ userId, role, fullName, memberSince }) =>
+        set({ userId, role, fullName, memberSince, isAuthenticated: true }),
 
       logout: () => set(initialState),
     }),
     {
       name: 'lbms-auth', // localStorage key
-      version: 2, // bump when auth schema changes to clear stale state
+      version: 3, // bumped — schema changed (token → userId)
       partialize: (state) => ({
-        token: state.token,
+        userId: state.userId,
         role: state.role,
         fullName: state.fullName,
         memberSince: state.memberSince,

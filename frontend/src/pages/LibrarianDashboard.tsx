@@ -16,6 +16,30 @@ import {
   getTransactions,
   type TransactionResponse,
 } from '../services/transactionService'
+import { Mail, Pencil, Shield, User, Calendar } from 'lucide-react'
+import { ProfileEditModal } from '../components/overlay'
+import { getCurrentUser } from '../services/userService'
+import type { ReactNode } from 'react'
+
+// ── Sub-components ────────────────────────────────────────────────────────────────
+
+type FieldRowProps = { icon: ReactNode; label: string; value: string }
+
+const FieldRow = ({ icon, label, value }: FieldRowProps) => (
+  <div className="flex items-start gap-3 py-3.5">
+    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+      {icon}
+    </div>
+    <div className="min-w-0 flex-1">
+      <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+        {label}
+      </p>
+      <p className="mt-0.5 truncate text-sm font-medium text-gray-900">
+        {value}
+      </p>
+    </div>
+  </div>
+)
 
 const fmtDate = (d: string | null) =>
   d
@@ -27,15 +51,32 @@ const fmtDate = (d: string | null) =>
     : '—'
 
 export const LibrarianDashboard = () => {
-  const { fullName, token } = useAuthStore()
+  const { fullName, isAuthenticated, memberSince } = useAuthStore()
   const firstName = fullName?.split(' ')[0] ?? 'Librarian'
+
+  const [dashEmail, setDashEmail] = useState('')
+  const [profileModalOpen, setProfileModalOpen] = useState(false)
+
+  useEffect(() => {
+    getCurrentUser()
+      .then((me) => setDashEmail(me.email))
+      .catch(console.error)
+  }, [isAuthenticated])
+
+  const initials = (fullName ?? 'LB')
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+
   const [report, setReport] = useState<ReportResponse | null>(null)
   const [recentTx, setRecentTx] = useState<TransactionResponse[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!token) return
-    Promise.all([getReports(token), getTransactions(token)])
+    if (!isAuthenticated) return
+    Promise.all([getReports(), getTransactions()])
       .then(([r, txs]) => {
         setReport(r)
         setRecentTx(
@@ -48,7 +89,7 @@ export const LibrarianDashboard = () => {
       })
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [token])
+  }, [isAuthenticated])
 
   const statusColor: Record<string, string> = {
     issued: 'text-indigo-600',
@@ -63,6 +104,73 @@ export const LibrarianDashboard = () => {
         <PageHeader
           title={`Welcome back, ${firstName}`}
           description="Here's your library management overview"
+        />
+
+        {/* Profile Card */}
+        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+          {/* Gradient hero */}
+          <div className="relative bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 px-6 py-7">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-center gap-5">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-2xl font-bold ring-2 ring-white/30">
+                  {initials}
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white">
+                    {fullName ?? 'Librarian'}
+                  </h2>
+                  <p className="mt-0.5 text-sm text-indigo-200">{dashEmail}</p>
+                  <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-400/30 px-2.5 py-0.5 text-xs font-medium text-amber-100">
+                    <Shield className="h-3 w-3" />
+                    Librarian / Admin
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProfileModalOpen(true)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-white/25 bg-white/15 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition hover:bg-white/25 sm:w-auto sm:justify-start"
+              >
+                <Pencil className="h-3.5 w-3.5" /> Edit Profile
+              </button>
+            </div>
+          </div>
+
+          {/* Read-only info row — 3-col on md+ */}
+          <div className="grid grid-cols-1 divide-y divide-gray-100 px-6 md:grid-cols-3 md:divide-x md:divide-y-0">
+            <div className="md:pr-6">
+              <FieldRow
+                icon={<User className="h-4 w-4" />}
+                label="Full Name"
+                value={fullName ?? '—'}
+              />
+            </div>
+            <div className="md:px-6">
+              <FieldRow
+                icon={<Mail className="h-4 w-4" />}
+                label="Email"
+                value={dashEmail || '—'}
+              />
+            </div>
+            <div className="md:pl-6">
+              <FieldRow
+                icon={<Calendar className="h-4 w-4" />}
+                label="Account Created"
+                value={memberSince ?? '—'}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Profile edit modal */}
+        <ProfileEditModal
+          open={profileModalOpen}
+          onClose={() => setProfileModalOpen(false)}
+          onProfileUpdate={(name, email) => {
+            setDashEmail(email)
+            // fullName in store is updated by modal via setAuth
+            void name
+          }}
         />
 
         {loading ? (
@@ -131,84 +239,83 @@ export const LibrarianDashboard = () => {
               </div>
             </SearchCard>
 
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-              <Card className="lg:col-span-2 border-gray-200 bg-white shadow-sm">
-                <CardHeader>
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Recent Transactions
-                  </h2>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {recentTx.length === 0 ? (
-                    <p className="text-sm text-gray-500">
-                      No transactions yet.
-                    </p>
-                  ) : (
-                    recentTx.map((tx) => (
-                      <div
-                        key={tx.transactionId}
-                        className="flex items-center justify-between border-b border-gray-100 pb-3 last:border-b-0"
-                      >
-                        <div>
-                          <p className="font-medium text-gray-900">
-                            {tx.bookTitle ?? 'Unknown Book'}
-                          </p>
-                          <p
-                            className={`text-xs font-medium capitalize ${statusColor[tx.status] ?? 'text-gray-500'}`}
+            <Card className="border-gray-200 bg-white shadow-sm">
+              <CardHeader>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Recent Transactions
+                </h2>
+              </CardHeader>
+              <CardContent>
+                {recentTx.length === 0 ? (
+                  <p className="text-sm text-gray-500">No transactions yet.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            Book
+                          </th>
+                          <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            Member
+                          </th>
+                          <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            Checked Out
+                          </th>
+                          <th className="pb-2 pr-4 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            Due Date
+                          </th>
+                          <th className="pb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                            Status
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {recentTx.map((tx) => (
+                          <tr
+                            key={tx.transactionId}
+                            className="hover:bg-gray-50/60"
                           >
-                            {tx.status}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm text-gray-700">
-                            {fmtDate(tx.checkout_date)}
-                          </p>
-                          {tx.due_date && (
-                            <p className="text-xs text-gray-500">
-                              Due: {fmtDate(tx.due_date)}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </CardContent>
-                <CardFooter>
-                  <Link to="/librarian/reports#transactions" className="w-full">
-                    <Button variant="secondary" className="w-full">
-                      View All Transactions
-                    </Button>
-                  </Link>
-                </CardFooter>
-              </Card>
-
-              <Card className="border-gray-200 bg-white shadow-sm">
-                <CardHeader>
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Top Borrowed Books
-                  </h2>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {report?.topBorrowedBooks?.length ? (
-                    report.topBorrowedBooks.map((b, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm"
-                      >
-                        <p className="truncate font-medium text-gray-900">
-                          {b.title}
-                        </p>
-                        <span className="ml-2 shrink-0 text-xs font-semibold text-indigo-600">
-                          {b.borrowCount}×
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-500">No data available.</p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                            <td
+                              className="max-w-[200px] truncate py-3 pr-4 font-medium text-gray-900"
+                              title={tx.bookTitle ?? ''}
+                            >
+                              {tx.bookTitle ?? 'Unknown Book'}
+                            </td>
+                            <td
+                              className="max-w-[160px] truncate py-3 pr-4 text-gray-700"
+                              title={tx.memberName ?? ''}
+                            >
+                              {tx.memberName ?? '—'}
+                            </td>
+                            <td className="whitespace-nowrap py-3 pr-4 text-gray-600">
+                              {fmtDate(tx.checkout_date)}
+                            </td>
+                            <td className="whitespace-nowrap py-3 pr-4 text-gray-600">
+                              {tx.due_date ? fmtDate(tx.due_date) : '—'}
+                            </td>
+                            <td className="py-3">
+                              <span
+                                className={`text-xs font-semibold capitalize ${statusColor[tx.status] ?? 'text-gray-500'}`}
+                              >
+                                {tx.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter>
+                <Link to="/librarian/reports#transactions" className="w-full">
+                  <Button variant="secondary" className="w-full">
+                    View All Transactions
+                  </Button>
+                </Link>
+              </CardFooter>
+            </Card>
           </>
         )}
       </div>

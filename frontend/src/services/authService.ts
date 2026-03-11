@@ -8,8 +8,7 @@ export type LoginPayload = {
 }
 
 export type LoginResponse = {
-  token: string
-  type: string
+  userId: string | null
   role: string
   fullName: string | null
   memberSince: string | null
@@ -45,6 +44,7 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
   const res = await fetch(`${API_BASE}/v1/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(payload),
   })
 
@@ -53,4 +53,13 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
   }
 
   return res.json() as Promise<LoginResponse>
+}
+
+export async function logoutUser(): Promise<void> {
+  await fetch(`${API_BASE}/v1/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+  }).catch(() => {
+    /* best-effort */
+  })
 }

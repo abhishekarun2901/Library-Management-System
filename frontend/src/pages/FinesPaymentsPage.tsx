@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { Badge, Button, Input, Select } from '../components/ui'
+import { Badge, Button, SearchInput, Select } from '../components/ui'
 import { AppLayout, PageHeader } from '../components/layout'
 import { SearchCard, Banner, DataTable } from '../components/composite'
 import {
@@ -25,7 +24,7 @@ const fmtDate = (d: string | null | undefined) =>
 export const FinesPaymentsPage = ({
   role = 'member',
 }: FinesPaymentsPageProps) => {
-  const { token } = useAuthStore()
+  const { isAuthenticated } = useAuthStore()
   const sidebarItems =
     role === 'librarian' ? librarianSidebarItems : memberSidebarItems
   const topbarTitle = role === 'librarian' ? 'Fines & Payments' : 'My Fines'
@@ -36,22 +35,26 @@ export const FinesPaymentsPage = ({
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
+  const [finePage, setFinePage] = useState(1)
 
   useEffect(() => {
-    if (!token) return
-    const loader =
-      role === 'librarian' ? getAllFines(token) : getUserFines(token)
+    if (!isAuthenticated) return
+    const loader = role === 'librarian' ? getAllFines() : getUserFines()
     loader
       .then(setFines)
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [token, role])
+  }, [isAuthenticated, role])
+
+  useEffect(() => {
+    setFinePage(1)
+  }, [search, filterStatus])
 
   const handlePay = async (fine: FineResponse) => {
-    if (!token || !fine.transactionId) return
+    if (!fine.transactionId) return
     setPayingId(fine.fineId)
     try {
-      await payFine(fine.transactionId, token)
+      await payFine(fine.transactionId)
       setFines((prev) =>
         prev.map((f) => (f.fineId === fine.fineId ? { ...f, paid: true } : f))
       )
@@ -75,6 +78,29 @@ export const FinesPaymentsPage = ({
     return matchSearch && matchStatus
   })
 
+  const FINES_PER_PAGE = 10
+  const totalFinePages = Math.max(
+    1,
+    Math.ceil(filtered.length / FINES_PER_PAGE)
+  )
+  const pagedFines = filtered.slice(
+    (finePage - 1) * FINES_PER_PAGE,
+    finePage * FINES_PER_PAGE
+  )
+  const getFinePageNumbers = (): (number | '...')[] => {
+    const pages: (number | '...')[] = []
+    if (totalFinePages <= 7)
+      return Array.from({ length: totalFinePages }, (_, i) => i + 1)
+    pages.push(1)
+    if (finePage > 4) pages.push('...')
+    const s = Math.max(2, finePage - 2)
+    const e = Math.min(totalFinePages - 1, finePage + 2)
+    for (let i = s; i <= e; i++) pages.push(i)
+    if (finePage < totalFinePages - 3) pages.push('...')
+    pages.push(totalFinePages)
+    return pages
+  }
+
   const totalUnpaid = fines
     .filter((f) => !f.paid)
     .reduce((s, f) => s + (f.amount ?? 0), 0)
@@ -93,11 +119,6 @@ export const FinesPaymentsPage = ({
             role === 'librarian'
               ? 'Track and manage overdue fines across all members'
               : 'View your outstanding library fines'
-          }
-          action={
-            <Link to={role === 'librarian' ? '/librarian' : '/member'}>
-              <Button variant="secondary">Back to Dashboard</Button>
-            </Link>
           }
         />
 
@@ -158,41 +179,28 @@ export const FinesPaymentsPage = ({
               : 'Filter by book title or fine ID'
           }
         >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
-            <div className="sm:col-span-6">
-              <Input
-                placeholder={
-                  role === 'librarian'
-                    ? 'Search by member name, book title or fine ID…'
-                    : 'Search by book title or fine ID…'
-                }
-                type="search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="sm:col-span-3">
-              <Select
-                placeholder="All"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                options={[
-                  { label: 'Unpaid', value: 'unpaid' },
-                  { label: 'Paid', value: 'paid' },
-                ]}
-              />
-            </div>
-            <div className="flex items-end sm:col-span-3">
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setSearch('')
-                  setFilterStatus('')
-                }}
-              >
-                Clear Filters
-              </Button>
-            </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <SearchInput
+              className="flex-1"
+              placeholder={
+                role === 'librarian'
+                  ? 'Search by member name, book title or fine ID…'
+                  : 'Search by book title or fine ID…'
+              }
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onClear={() => setSearch('')}
+            />
+            <Select
+              className="sm:w-40"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              options={[
+                { label: 'All', value: '' },
+                { label: 'Unpaid', value: 'unpaid' },
+                { label: 'Paid', value: 'paid' },
+              ]}
+            />
           </div>
         </SearchCard>
 
@@ -200,6 +208,10 @@ export const FinesPaymentsPage = ({
           <div className="mb-3 flex items-center justify-between">
             <p className="text-sm text-gray-500">
               Showing{' '}
+              <span className="font-medium text-gray-900">
+                {pagedFines.length}
+              </span>{' '}
+              of{' '}
               <span className="font-medium text-gray-900">
                 {filtered.length}
               </span>{' '}
@@ -216,16 +228,6 @@ export const FinesPaymentsPage = ({
               <p className="text-gray-500">
                 No fines found matching your criteria.
               </p>
-              <Button
-                variant="secondary"
-                className="mt-4"
-                onClick={() => {
-                  setSearch('')
-                  setFilterStatus('')
-                }}
-              >
-                Clear Filters
-              </Button>
             </div>
           ) : (
             <DataTable
@@ -241,21 +243,29 @@ export const FinesPaymentsPage = ({
                     ]
                   : ['Book', 'Reason', 'Amount', 'Status', 'Action']
               }
-              rows={filtered.map((fine) => [
+              rows={pagedFines.map((fine) => [
                 ...(role === 'librarian'
                   ? [
-                      <div key="member">
-                        <p className="font-medium text-gray-900">
+                      <div key="member" className="max-w-[140px]">
+                        <p
+                          className="truncate font-medium text-gray-900"
+                          title={fine.memberName ?? '—'}
+                        >
                           {fine.memberName ?? '—'}
                         </p>
                       </div>,
                     ]
                   : []),
-                <div key="book">
-                  <p className="font-medium text-gray-900">
+                <div key="book" className="max-w-[160px]">
+                  <p
+                    className="truncate font-medium text-gray-900"
+                    title={fine.bookTitle ?? 'Unknown'}
+                  >
                     {fine.bookTitle ?? 'Unknown'}
                   </p>
-                  <p className="text-xs text-gray-500">{fine.reason ?? ''}</p>
+                  <p className="truncate text-xs text-gray-500">
+                    {fine.reason ?? ''}
+                  </p>
                 </div>,
                 <span key="date" className="text-sm text-gray-600">
                   {role === 'librarian'
@@ -284,6 +294,57 @@ export const FinesPaymentsPage = ({
                 ),
               ])}
             />
+          )}
+          {!loading && filtered.length > 0 && totalFinePages > 1 && (
+            <div className="mt-4 flex flex-col items-center gap-3 border-t border-gray-200 pt-4 sm:flex-row sm:justify-between">
+              <p className="text-sm text-gray-600">
+                Page{' '}
+                <span className="font-medium text-gray-900">{finePage}</span> of{' '}
+                <span className="font-medium text-gray-900">
+                  {totalFinePages}
+                </span>
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="secondary"
+                  className="px-3 py-1.5 text-xs"
+                  disabled={finePage === 1}
+                  onClick={() => setFinePage((p) => p - 1)}
+                >
+                  ← Previous
+                </Button>
+                {getFinePageNumbers().map((page, idx) =>
+                  page === '...' ? (
+                    <span
+                      key={`e${idx}`}
+                      className="px-2 text-sm text-gray-400"
+                    >
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={page}
+                      onClick={() => setFinePage(page as number)}
+                      className={`min-w-[2rem] rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
+                        finePage === page
+                          ? 'border-indigo-600 bg-indigo-600 text-white'
+                          : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  )
+                )}
+                <Button
+                  variant="secondary"
+                  className="px-3 py-1.5 text-xs"
+                  disabled={finePage === totalFinePages}
+                  onClick={() => setFinePage((p) => p + 1)}
+                >
+                  Next →
+                </Button>
+              </div>
+            </div>
           )}
         </div>
       </div>

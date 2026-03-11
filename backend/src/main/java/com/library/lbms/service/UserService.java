@@ -15,6 +15,7 @@ import com.library.lbms.dto.response.UserResponse;
 public interface UserService {
 
     Page<UserResponse> getAllUsers(Pageable pageable);
+    Page<UserResponse> getAllUsers(String search, Pageable pageable);
     UserResponse updateUser(UUID userId, UpdateUserRequest request);
     void deleteUser(UUID userId);
     UserResponse createUser(CreateUserRequest request);
@@ -26,4 +27,5 @@ public interface UserService {
     void updateLastLogin(String email);
     String getFullNameByEmail(String email);
     java.time.LocalDateTime getCreatedAtByEmail(String email);
+    java.util.UUID getUserIdByEmail(String email);
 }

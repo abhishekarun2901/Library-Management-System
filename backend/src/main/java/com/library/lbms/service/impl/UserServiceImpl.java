@@ -61,8 +61,14 @@ public class UserServiceImpl implements UserService {
     @Override
     @PreAuthorize("hasRole('ADMIN')")
     public Page<UserResponse> getAllUsers(Pageable pageable) {
-        return userRepository.findByIsActiveTrue(pageable)
+        return userRepository.findByIsActiveTrueOrBlacklistReasonIsNotNull(pageable)
                 .map(this::mapToResponse);
+    }
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public Page<UserResponse> getAllUsers(String search, Pageable pageable) {
+        return userRepository.searchUsers(search, pageable).map(this::mapToResponse);
     }
 
     // CREATE USER 
@@ -140,12 +146,23 @@ public class UserServiceImpl implements UserService {
 
         // Only admin can modify system flags
         if (admin) {
-            if (request.getIsActive() != null) {
-                target.setIsActive(request.getIsActive());
+            // Admin cannot deactivate or blacklist themselves
+            if (current.getUserId().equals(userId) && request.getIsActive() != null && !Boolean.TRUE.equals(request.getIsActive())) {
+                throw new BadRequestException("You cannot deactivate or blacklist your own account");
             }
 
-            if (request.getBlacklistReason() != null) {
-                target.setBlacklistReason(request.getBlacklistReason());
+            if (request.getIsActive() != null) {
+                target.setIsActive(request.getIsActive());
+                // Activating a member always clears any blacklist reason
+                if (Boolean.TRUE.equals(request.getIsActive())) {
+                    target.setBlacklistReason(null);
+                }
+            }
+
+            // Explicit blacklist reason update (only when setting inactive)
+            if (!Boolean.TRUE.equals(request.getIsActive()) && request.getBlacklistReason() != null) {
+                String reason = request.getBlacklistReason().trim();
+                target.setBlacklistReason(reason.isEmpty() ? null : reason);
             }
         }
 
@@ -161,6 +178,11 @@ public class UserServiceImpl implements UserService {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        User current = getAuthenticatedUser();
+        if (current.getUserId().equals(userId)) {
+            throw new BadRequestException("You cannot delete your own account");
+        }
 
         long activeLoans = transactionRepository
                 .countByUser_UserIdAndReturnDateIsNull(userId);
@@ -178,7 +200,7 @@ public class UserServiceImpl implements UserService {
         }
 
         user.setIsActive(false);
-        user.setBlacklistReason("Account deactivated by admin");
+        user.setBlacklistReason(null);
         user.setUpdatedAt(LocalDateTime.now());
 
         userRepository.save(user);
@@ -256,6 +278,13 @@ public class UserServiceImpl implements UserService {
     public java.time.LocalDateTime getCreatedAtByEmail(String email) {
         return userRepository.findByEmail(email)
                 .map(User::getCreatedAt)
+                .orElse(null);
+    }
+
+    @Override
+    public java.util.UUID getUserIdByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .map(User::getUserId)
                 .orElse(null);
     }
 

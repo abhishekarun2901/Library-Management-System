@@ -8,22 +8,17 @@ export type IssueBookPayload = {
   copyId: string
 }
 
-export const getTransactions = (token: string) =>
-  apiFetch<TransactionResponse[]>('/v1/transactions', {}, token)
+export const getTransactions = () =>
+  apiFetch<TransactionResponse[]>('/v1/transactions')
 
-export const issueBook = (payload: IssueBookPayload, token: string) =>
-  apiFetch<TransactionResponse>(
-    '/v1/transactions',
-    {
-      method: 'POST',
-      body: JSON.stringify({ userId: payload.userId, copyId: payload.copyId }),
-    },
-    token
-  )
+export const issueBook = (payload: IssueBookPayload) =>
+  apiFetch<TransactionResponse>('/v1/transactions', {
+    method: 'POST',
+    body: JSON.stringify({ userId: payload.userId, copyId: payload.copyId }),
+  })
 
-export const returnBook = (transactionId: string, token: string) =>
-  apiFetch<TransactionResponse>(
-    `/v1/transactions/${transactionId}`,
-    { method: 'PATCH', body: JSON.stringify({ status: 'returned' }) },
-    token
-  )
+export const returnBook = (transactionId: string) =>
+  apiFetch<TransactionResponse>(`/v1/transactions/${transactionId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status: 'returned' }),
+  })

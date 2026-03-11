@@ -157,14 +157,8 @@ export const LoginPage = () => {
               </div>
             </FormField>
 
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
               <Checkbox label="Remember me" />
-              <a
-                href="#"
-                className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
-              >
-                Forgot password?
-              </a>
             </div>
 
             <Button

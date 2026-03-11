@@ -108,14 +108,9 @@ export const IssueBook = () => {
           title="Issue a Book"
           description="Search for a member and a book to create a new loan"
           action={
-            <div className="flex items-center gap-3">
-              <Link to="/librarian/catalog">
-                <Button variant="secondary">Browse Catalog</Button>
-              </Link>
-              <Link to="/librarian">
-                <Button variant="secondary">Back to Dashboard</Button>
-              </Link>
-            </div>
+            <Link to="/librarian/catalog">
+              <Button variant="secondary">Browse Catalog</Button>
+            </Link>
           }
         />
 

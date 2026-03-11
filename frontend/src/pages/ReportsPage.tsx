@@ -34,7 +34,7 @@ const fmtCurrency = (n: number | undefined) =>
 const TX_PAGE_SIZE = 10
 
 export const ReportsPage = () => {
-  const { token } = useAuthStore()
+  const { isAuthenticated } = useAuthStore()
   const location = useLocation()
 
   const [report, setReport] = useState<ReportResponse | null>(null)
@@ -51,20 +51,20 @@ export const ReportsPage = () => {
   const [payingFineId, setPayingFineId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!token) return
+    if (!isAuthenticated) return
     setLoading(true)
-    getReports(token)
+    getReports()
       .then(setReport)
       .catch((e: unknown) =>
         setError(e instanceof Error ? e.message : 'Failed to load report.')
       )
       .finally(() => setLoading(false))
-  }, [token])
+  }, [isAuthenticated])
 
   useEffect(() => {
-    if (!token) return
+    if (!isAuthenticated) return
     setTxLoading(true)
-    getTransactions(token)
+    getTransactions()
       .then((txs) =>
         setTransactions(
           [...txs].sort((a, b) =>
@@ -74,12 +74,12 @@ export const ReportsPage = () => {
       )
       .catch(console.error)
       .finally(() => setTxLoading(false))
-  }, [token])
+  }, [isAuthenticated])
 
   useEffect(() => {
-    if (!token) return
-    getAllFines(token).then(setFines).catch(console.error)
-  }, [token])
+    if (!isAuthenticated) return
+    getAllFines().then(setFines).catch(console.error)
+  }, [isAuthenticated])
 
   // Reset to page 0 when filter changes
   useEffect(() => {
@@ -87,10 +87,9 @@ export const ReportsPage = () => {
   }, [txFilter])
 
   const handleMarkPaid = async (fine: FineResponse) => {
-    if (!token) return
     setPayingFineId(fine.fineId)
     try {
-      await payFine(fine.transactionId, token)
+      await payFine(fine.transactionId)
       setFines((prev) =>
         prev.map((f) => (f.fineId === fine.fineId ? { ...f, paid: true } : f))
       )
@@ -170,11 +169,6 @@ export const ReportsPage = () => {
         <PageHeader
           title="Library Reports"
           description="Inventory overview, circulation statistics, and financial summaries"
-          action={
-            <Link to="/librarian">
-              <Button variant="secondary">Back to Dashboard</Button>
-            </Link>
-          }
         />
 
         {error && (
@@ -218,75 +212,38 @@ export const ReportsPage = () => {
               ))}
             </div>
 
-            {/* Top borrowed + Most active users */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              {/* Top Borrowed Books */}
-              <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div className="flex items-center gap-2 border-b border-gray-100 px-6 py-4">
-                  <BookOpen className="h-5 w-5 text-indigo-500" />
-                  <h3 className="text-base font-semibold text-gray-900">
-                    Top Borrowed Books
-                  </h3>
-                </div>
-                {report.topBorrowedBooks.length === 0 ? (
-                  <p className="p-6 text-sm text-gray-500">
-                    No borrowing data available.
-                  </p>
-                ) : (
-                  <ol className="divide-y divide-gray-100">
-                    {report.topBorrowedBooks.map((book, idx) => (
-                      <li
-                        key={book.title}
-                        className="flex items-center gap-4 px-6 py-3"
-                      >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-600">
-                          {idx + 1}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900">
-                          {book.title}
-                        </span>
-                        <span className="shrink-0 rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
-                          {book.borrowCount}×
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                )}
+            {/* Most Active Members */}
+            <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+              <div className="flex items-center gap-2 border-b border-gray-100 px-6 py-4">
+                <Users className="h-5 w-5 text-purple-500" />
+                <h3 className="text-base font-semibold text-gray-900">
+                  Most Active Members
+                </h3>
               </div>
-
-              {/* Most Active Users */}
-              <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
-                <div className="flex items-center gap-2 border-b border-gray-100 px-6 py-4">
-                  <Users className="h-5 w-5 text-purple-500" />
-                  <h3 className="text-base font-semibold text-gray-900">
-                    Most Active Members
-                  </h3>
-                </div>
-                {report.mostActiveUsers.length === 0 ? (
-                  <p className="p-6 text-sm text-gray-500">
-                    No activity data available.
-                  </p>
-                ) : (
-                  <ol className="divide-y divide-gray-100">
-                    {report.mostActiveUsers.map((user, idx) => (
-                      <li
-                        key={user.email}
-                        className="flex items-center gap-4 px-6 py-3"
-                      >
-                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-purple-50 text-xs font-bold text-purple-600">
-                          {idx + 1}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900">
-                          {user.email}
-                        </span>
-                        <span className="shrink-0 rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700">
-                          {user.borrowCount} loans
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </div>
+              {report.mostActiveUsers.length === 0 ? (
+                <p className="p-6 text-sm text-gray-500">
+                  No activity data available.
+                </p>
+              ) : (
+                <ol className="divide-y divide-gray-100">
+                  {report.mostActiveUsers.map((user, idx) => (
+                    <li
+                      key={user.email}
+                      className="flex items-center gap-4 px-6 py-3"
+                    >
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-purple-50 text-xs font-bold text-purple-600">
+                        {idx + 1}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900">
+                        {user.email}
+                      </span>
+                      <span className="shrink-0 rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700">
+                        {user.borrowCount} loans
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
             </div>
 
             {/* ── All Transactions ───────────────────────────────────────── */}

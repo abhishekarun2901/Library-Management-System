@@ -1,7 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { Badge, Button, Input, Select } from '../components/ui'
+import {
+  Badge,
+  Button,
+  SearchInput,
+  SearchableSelect,
+  Select,
+} from '../components/ui'
 import { AppLayout } from '../components/layout'
 import { PageHeader } from '../components/layout'
 import { SearchCard, ListItemCard, Banner } from '../components/composite'
@@ -9,7 +15,11 @@ import {
   librarianSidebarItems,
   memberSidebarItems,
 } from '../config/sidebarConfig'
-import { getBooks, type BookResponse } from '../services/bookService'
+import {
+  getBooks,
+  getCategories,
+  type BookResponse,
+} from '../services/bookService'
 import {
   createReservation,
   getReservations,
@@ -23,7 +33,7 @@ export type BookCatalogProps = {
 const ITEMS_PER_PAGE = 8
 
 export const BookCatalog = ({ role = 'member' }: BookCatalogProps) => {
-  const { token } = useAuthStore()
+  const { isAuthenticated } = useAuthStore()
   const sidebarItems =
     role === 'librarian' ? librarianSidebarItems : memberSidebarItems
   const topbarTitle =
@@ -48,23 +58,38 @@ export const BookCatalog = ({ role = 'member' }: BookCatalogProps) => {
     { label: string; value: string }[]
   >([])
 
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const genreDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleSearchDebounced = (
+    value: string,
+    category = filterGenre,
+    sort = sortBy
+  ) => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current)
+    searchDebounceRef.current = setTimeout(() => {
+      setCurrentPage(1)
+      fetchBooks(1, value, category, sort)
+    }, 350)
+  }
+
   useEffect(() => {
-    if (!token) return
-    getReservations(token)
+    if (!isAuthenticated) return
+    getReservations()
       .then((rvs) =>
         setMyActiveBookIds(
           new Set(rvs.filter((r) => r.status === 'active').map((r) => r.bookId))
         )
       )
       .catch(console.error)
-  }, [token])
+  }, [isAuthenticated])
 
   useEffect(() => {
-    if (!token) return
-    getCurrentUser(token)
+    if (!isAuthenticated) return
+    getCurrentUser()
       .then((u) => setCurrentUserId(u.userId))
       .catch(console.error)
-  }, [token])
+  }, [isAuthenticated])
 
   const fetchBooks = (
     page: number,
@@ -73,16 +98,13 @@ export const BookCatalog = ({ role = 'member' }: BookCatalogProps) => {
     sort = sortBy
   ) => {
     setLoading(true)
-    getBooks(
-      {
-        search: search || undefined,
-        category: category || undefined,
-        page: page - 1,
-        size: ITEMS_PER_PAGE,
-        sortBy: sort || undefined,
-      },
-      token ?? undefined
-    )
+    getBooks({
+      search: search || undefined,
+      category: category || undefined,
+      page: page - 1,
+      size: ITEMS_PER_PAGE,
+      sortBy: sort || undefined,
+    })
       .then((data) => {
         setBooks(data.content)
         setTotalElements(data.totalElements)
@@ -94,36 +116,23 @@ export const BookCatalog = ({ role = 'member' }: BookCatalogProps) => {
 
   useEffect(() => {
     fetchBooks(1)
-  }, [token])
+  }, [isAuthenticated])
 
   useEffect(() => {
-    getBooks({ page: 0, size: 1000 }, token ?? undefined)
-      .then((data) => {
-        const cats = Array.from(
-          new Set(data.content.flatMap((b) => b.categories ?? []))
-        )
-          .sort()
-          .map((c) => ({ label: c, value: c }))
-        setGenreOptions(cats)
-      })
+    getCategories()
+      .then((cats) =>
+        setGenreOptions(cats.map((c) => ({ label: c, value: c })))
+      )
       .catch(console.error)
-  }, [token])
+  }, [])
 
   const handleSearch = () => {
     setCurrentPage(1)
     fetchBooks(1)
   }
 
-  const handleClear = () => {
-    setSearchInput('')
-    setFilterGenre('')
-    setSortBy('')
-    setCurrentPage(1)
-    fetchBooks(1, '', '', '')
-  }
-
   const handleReserve = async (book: BookResponse) => {
-    if (!token || !currentUserId) return
+    if (!currentUserId) return
 
     // AC-1: Guard on the client side too — block when no available copies.
     if ((book.trueAvailableStock ?? 0) <= 0) {
@@ -136,7 +145,7 @@ export const BookCatalog = ({ role = 'member' }: BookCatalogProps) => {
     setReservingId(book.bookId)
     setReserveError(null)
     try {
-      await createReservation(currentUserId, book.bookId, token)
+      await createReservation(currentUserId, book.bookId)
       setMyActiveBookIds((prev) => new Set([...prev, book.bookId]))
       setReserveSuccess(`"${book.title}" has been reserved!`)
     } catch (e: unknown) {
@@ -177,16 +186,11 @@ export const BookCatalog = ({ role = 'member' }: BookCatalogProps) => {
           title="Book Catalog"
           description="Search and discover books available in the library"
           action={
-            <div className="flex items-center gap-3">
-              {role === 'librarian' ? (
-                <Link to="/librarian/books">
-                  <Button>Manage Books</Button>
-                </Link>
-              ) : null}
-              <Link to={role === 'librarian' ? '/librarian' : '/member'}>
-                <Button variant="secondary">Back to Dashboard</Button>
+            role === 'librarian' ? (
+              <Link to="/librarian/books">
+                <Button>Manage Books</Button>
               </Link>
-            </div>
+            ) : null
           }
         />
 
@@ -209,38 +213,38 @@ export const BookCatalog = ({ role = 'member' }: BookCatalogProps) => {
           title="Search Books"
           description="Find books by title, author, or genre"
         >
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
-            <div className="sm:col-span-5">
-              <Input
-                placeholder="Search by title or author…"
-                type="search"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              />
-            </div>
-            <div className="sm:col-span-3">
-              <Select
-                placeholder="All Genres"
-                value={filterGenre}
-                onChange={(e) => setFilterGenre(e.target.value)}
-                options={[{ label: 'All Genres', value: '' }, ...genreOptions]}
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <Button className="w-full" onClick={handleSearch}>
-                Search
-              </Button>
-            </div>
-            <div className="sm:col-span-2">
-              <Button
-                className="w-full"
-                variant="secondary"
-                onClick={handleClear}
-              >
-                Clear
-              </Button>
-            </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <SearchInput
+              className="flex-1"
+              placeholder="Search by title or author…"
+              value={searchInput}
+              onChange={(e) => {
+                setSearchInput(e.target.value)
+                handleSearchDebounced(e.target.value)
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              onClear={() => {
+                setSearchInput('')
+                setCurrentPage(1)
+                fetchBooks(1, '', filterGenre, sortBy)
+              }}
+            />
+            <SearchableSelect
+              className="sm:w-52"
+              placeholder="All Genres"
+              value={filterGenre}
+              options={genreOptions}
+              onChange={(val) => {
+                setFilterGenre(val)
+                setCurrentPage(1)
+                if (genreDebounceRef.current)
+                  clearTimeout(genreDebounceRef.current)
+                genreDebounceRef.current = setTimeout(
+                  () => fetchBooks(1, searchInput, val, sortBy),
+                  350
+                )
+              }}
+            />
           </div>
         </SearchCard>
 

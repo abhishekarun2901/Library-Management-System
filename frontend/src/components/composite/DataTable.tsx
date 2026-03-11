@@ -1,5 +1,5 @@
-import type { HTMLAttributes, ReactNode } from "react"
-import { Card, CardContent, CardHeader } from "../ui"
+import type { HTMLAttributes, ReactNode } from 'react'
+import { Card, CardContent, CardHeader } from '../ui'
 
 export type DataTableProps = HTMLAttributes<HTMLDivElement> & {
   headers: string[]
@@ -7,7 +7,13 @@ export type DataTableProps = HTMLAttributes<HTMLDivElement> & {
   title?: ReactNode
 }
 
-export const DataTable = ({ className = "", headers, rows, title, ...props }: DataTableProps) => {
+export const DataTable = ({
+  className = '',
+  headers,
+  rows,
+  title,
+  ...props
+}: DataTableProps) => {
   return (
     <Card className={className} {...props}>
       {title ? (
@@ -21,7 +27,10 @@ export const DataTable = ({ className = "", headers, rows, title, ...props }: Da
             <thead>
               <tr className="border-b border-gray-200 text-left text-gray-700">
                 {headers.map((header) => (
-                  <th key={header} className="px-3 py-3 font-medium first:pl-0 last:pr-0">
+                  <th
+                    key={header}
+                    className="px-3 py-3 font-medium first:pl-0 last:pr-0"
+                  >
                     {header}
                   </th>
                 ))}
@@ -29,9 +38,15 @@ export const DataTable = ({ className = "", headers, rows, title, ...props }: Da
             </thead>
             <tbody>
               {rows.map((row, rowIndex) => (
-                <tr key={rowIndex} className="border-b border-gray-100 hover:bg-gray-50">
+                <tr
+                  key={rowIndex}
+                  className="border-b border-gray-100 hover:bg-gray-50"
+                >
                   {row.map((cell, cellIndex) => (
-                    <td key={cellIndex} className="px-3 py-3 text-gray-700 first:pl-0 last:pr-0">
+                    <td
+                      key={cellIndex}
+                      className="px-3 py-3 align-middle text-gray-700 first:pl-0 last:pr-0"
+                    >
                       {cell}
                     </td>
                   ))}

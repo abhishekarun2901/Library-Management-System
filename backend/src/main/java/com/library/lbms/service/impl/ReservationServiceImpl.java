@@ -17,16 +17,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.library.lbms.dao.BookRepository;
+import com.library.lbms.dao.CopyRepository;
+import com.library.lbms.dao.FineRepository;
 import com.library.lbms.dao.NotificationRepository;
 import com.library.lbms.dao.ReservationRepository;
+import com.library.lbms.dao.TransactionRepository;
 import com.library.lbms.dao.UserRepository;
 import com.library.lbms.dto.request.ReservationRequest;
 import com.library.lbms.dto.response.ReservationResponse;
 import com.library.lbms.entity.Book;
+import com.library.lbms.entity.Copy;
 import com.library.lbms.entity.Notification;
 import com.library.lbms.entity.Reservation;
+import com.library.lbms.entity.Transaction;
 import com.library.lbms.entity.User;
 import com.library.lbms.entity.enums.CopyStatus;
+import com.library.lbms.entity.enums.TransactionStatus;
 import com.library.lbms.entity.enums.UserRole;
 import com.library.lbms.exception.BadRequestException;
 import com.library.lbms.exception.ResourceNotFoundException;
@@ -44,6 +50,9 @@ public class ReservationServiceImpl implements ReservationService {
     private final ReservationRepository reservationRepository;
     private final BookRepository bookRepository;
     private final UserRepository userRepository;
+    private final CopyRepository copyRepository;
+    private final TransactionRepository transactionRepository;
+    private final FineRepository fineRepository;
     private final NotificationRepository notificationRepository;
     private final CacheManager cacheManager; // Inject CacheManager
 
@@ -173,6 +182,8 @@ public class ReservationServiceImpl implements ReservationService {
         }
 
         return reservations.stream()
+                .sorted(Comparator.comparing(Reservation::getReservedAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -209,10 +220,56 @@ public class ReservationServiceImpl implements ReservationService {
         Reservation reservation = reservationRepository.findById(reservationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Reservation not found"));
 
-        reservation.setStatus(normalizeStatus(status));
+        String normalized = normalizeStatus(status);
+
+        if ("fulfilled".equals(normalized)) {
+            User member = reservation.getUser();
+            Book book = reservation.getBook();
+
+            // Guard: unpaid fines
+            boolean hasUnpaidFines = fineRepository.findByUser_UserId(member.getUserId())
+                    .stream().anyMatch(f -> !Boolean.TRUE.equals(f.getPaid()));
+            if (hasUnpaidFines) {
+                throw new BadRequestException("Member has outstanding unpaid fines.");
+            }
+
+            // Find an available copy
+            Copy copy = copyRepository.findByBook_BookId(book.getBookId())
+                    .stream()
+                    .filter(c -> CopyStatus.AVAILABLE.equals(c.getStatus()))
+                    .findFirst()
+                    .orElseThrow(() -> new BadRequestException("No available copy to issue for this book."));
+
+            // Issue the copy
+            copy.setStatus(CopyStatus.ISSUED);
+            Transaction tx = Transaction.builder()
+                    .transactionId(UUID.randomUUID())
+                    .copy(copy)
+                    .user(member)
+                    .issueDate(LocalDateTime.now())
+                    .dueDate(LocalDateTime.now().plusDays(14))
+                    .status(TransactionStatus.issued)
+                    .build();
+            transactionRepository.save(tx);
+
+            // Notify the member
+            notificationRepository.save(Notification.builder()
+                    .notificationId(UUID.randomUUID())
+                    .user(member)
+                    .type("BOOK_ISSUED")
+                    .message("\"" + book.getTitle() + "\" has been issued to you. Due date: "
+                            + tx.getDueDate().toLocalDate())
+                    .isRead(false)
+                    .createdAt(LocalDateTime.now())
+                    .build());
+
+            evictBookCache(book.getBookId());
+        }
+
+        reservation.setStatus(normalized);
         reservationRepository.save(reservation);
-        
-        evictBookCache(reservation.getBook().getBookId()); // Invalidate Cache
+
+        evictBookCache(reservation.getBook().getBookId());
         return mapToResponse(reservation);
     }
 
@@ -248,6 +305,7 @@ public class ReservationServiceImpl implements ReservationService {
         return ReservationResponse.builder()
                 .reservationId(reservation.getReservationId())
                 .userId(reservation.getUser().getUserId())
+                .memberName(reservation.getUser().getFullName())
                 .bookId(reservation.getBook().getBookId())
                 .bookTitle(reservation.getBook().getTitle())
                 .reservedAt(reservation.getReservedAt())

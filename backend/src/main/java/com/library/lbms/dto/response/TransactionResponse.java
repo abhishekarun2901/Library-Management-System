@@ -14,6 +14,7 @@ public class TransactionResponse {
     private UUID user_id;
     private UUID copy_id;
     private String bookTitle;
+    private String memberName;
     private LocalDateTime checkout_date;
     private LocalDateTime due_date;
     private LocalDateTime return_date;

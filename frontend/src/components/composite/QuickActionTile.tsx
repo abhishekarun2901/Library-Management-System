@@ -13,8 +13,8 @@ export const QuickActionTile = ({ className = "", description, title, label, hre
   const heading = title ?? label
 
   const content = (
-    <Card className="transition-colors hover:bg-gray-50">
-      <CardContent className="flex items-start justify-between gap-4 p-6">
+    <Card className="h-full transition-colors hover:bg-gray-50">
+      <CardContent className="flex h-full items-start justify-between gap-4 p-6">
         <div>
           <p className="text-base font-semibold text-gray-900">{heading}</p>
           {description ? <p className="mt-1 text-sm text-gray-600">{description}</p> : null}

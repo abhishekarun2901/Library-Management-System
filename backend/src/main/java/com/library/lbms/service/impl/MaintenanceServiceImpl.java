@@ -142,11 +142,13 @@ public class MaintenanceServiceImpl implements MaintenanceService{
             }
 
             if (newlyOverdue) {
+                String overdueBookTitle = "a book";
+                try { overdueBookTitle = transaction.getCopy().getBook().getTitle(); } catch (Exception ignored) {}
                 notificationRepository.save(Notification.builder()
                         .notificationId(UUID.randomUUID())
                         .user(transaction.getUser())
                         .type("OVERDUE")
-                        .message("Book is overdue by " + daysOverdue + " day(s). Please return it.")
+                        .message("\"" + overdueBookTitle + "\" is overdue by " + daysOverdue + " day(s). A fine of $" + String.format("%.2f", fineAmount) + " has been applied. Please return it as soon as possible.")
                         .isRead(false)
                         .createdAt(LocalDateTime.now())
                         .build());

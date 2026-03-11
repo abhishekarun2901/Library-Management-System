@@ -24,11 +24,3 @@ export const Default: Story = {
     description: "Start circulation workflow"
   }
 }
-
-export const WithLink: Story = {
-  args: {
-    title: "Browse Catalog",
-    description: "Search and discover books",
-    href: "/librarian/catalog"
-  }
-}
