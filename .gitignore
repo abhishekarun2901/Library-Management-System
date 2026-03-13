@@ -52,14 +52,11 @@ Thumbs.db
 *.sln
 *.sw?
 .idea/
-.vscode/*
-!.vscode/extensions.json
+.vscode/
 
 # ── Project-specific generated / non-essential files ─────────────────────────
 frontend/storybook-static/
 docs/postman/e2e_test_report.json
 docs/postman/e2e_test_report.txt
 
-.env
-.repomix
-.vscode
+.repomix/
