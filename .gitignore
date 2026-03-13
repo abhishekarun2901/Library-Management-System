@@ -11,6 +11,8 @@ dist/
 dist-ssr/
 build/
 out/
+coverage/
+.nyc_output/
 
 # ── Java / Maven ──────────────────────────────────────────────────────────────
 target/
@@ -20,6 +22,14 @@ target/
 *.ear
 *.nar
 hs_err_pid*
+
+# ── Python (auxiliary tooling) ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
 
 # ── Environment / secrets ─────────────────────────────────────────────────────
 .env
@@ -44,3 +54,10 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# ── Project-specific generated / non-essential files ─────────────────────────
+repomix-output*.xmlfull.xml
+repomix-output*.htmlfull.xml
+frontend/storybook-static/
+docs/postman/e2e_test_report.json
+docs/postman/e2e_test_report.txt

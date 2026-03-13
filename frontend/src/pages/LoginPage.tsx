@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { BookOpen, CheckCircle2, Eye, EyeOff } from 'lucide-react'
-import { Button, Checkbox, Input } from '../components/ui'
+import { Button, Input } from '../components/ui'
 import { FormField } from '../components/composite'
 import { useLogin } from '../hooks/useLogin'
 
@@ -156,10 +156,6 @@ export const LoginPage = () => {
                 </button>
               </div>
             </FormField>
-
-            <div className="flex items-center gap-3">
-              <Checkbox label="Remember me" />
-            </div>
 
             <Button
               className="w-full"

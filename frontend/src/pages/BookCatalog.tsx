@@ -116,7 +116,7 @@ export const BookCatalog = ({ role = 'member' }: BookCatalogProps) => {
 
   useEffect(() => {
     fetchBooks(1)
-  }, [isAuthenticated])
+  }, [])
 
   useEffect(() => {
     getCategories()

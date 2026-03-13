@@ -39,6 +39,7 @@ services:
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
       APPLICATION_SECURITY_JWT_SECRET_KEY: ${JWT_SECRET}
       REDIS_HOST: redis
+      CORS_ALLOWED_ORIGIN_PATTERNS: "http://localhost:5173"
 
   frontend:
     build: ./frontend
@@ -65,10 +66,10 @@ services:
     container_name: library_pgadmin
     restart: always
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@lbms.com    # Login email for pgAdmin UI
-      PGADMIN_DEFAULT_PASSWORD: admin          # Login password for pgAdmin UI
+      PGADMIN_DEFAULT_EMAIL: admin@lbms.com # Login email for pgAdmin UI
+      PGADMIN_DEFAULT_PASSWORD: admin # Login password for pgAdmin UI
     ports:
-      - "5050:80"                              # Maps localhost:5050 to container port 80
+      - "5050:80" # Maps localhost:5050 to container port 80
     depends_on:
       - db
 
@@ -86,7 +87,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - GF_SECURITY_ADMIN_USER=admin     # Login username for Grafana
+      - GF_SECURITY_ADMIN_USER=admin # Login username for Grafana
       - GF_SECURITY_ADMIN_PASSWORD=admin # Login password for Grafana
     depends_on:
       - loki

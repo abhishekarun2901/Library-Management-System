@@ -13,7 +13,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: true
     open-in-view: false
     properties:
@@ -26,7 +26,7 @@ spring:
 
 lbms:
   cors:
-    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
+    allowed-origin-patterns: http://localhost:5173
   fine:
     perday: 2
 

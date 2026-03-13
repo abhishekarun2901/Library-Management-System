@@ -9,6 +9,7 @@ import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -44,9 +45,13 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request, HttpServletResponse response) {
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
+        } catch (AuthenticationException e) {
+            throw new RuntimeException("Invalid email or password");
+        }
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.getEmail());
         String jwtToken = jwtService.generateToken(userDetails);
@@ -72,7 +77,7 @@ public class AuthController {
                 .secure(false)          // set true in production (HTTPS)
                 .path("/")
                 .maxAge(Duration.ofDays(7))
-                .sameSite("Lax")
+            .sameSite("Lax")
                 .build();
         response.addHeader("Set-Cookie", cookie.toString());
 
@@ -91,7 +96,7 @@ public class AuthController {
                 .secure(false)
                 .path("/")
                 .maxAge(0)
-                .sameSite("Lax")
+            .sameSite("Lax")
                 .build();
         response.addHeader("Set-Cookie", clearCookie.toString());
         return ResponseEntity.noContent().build();

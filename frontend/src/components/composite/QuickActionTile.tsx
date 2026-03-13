@@ -1,6 +1,6 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react"
-import { Link } from "react-router-dom"
-import { Card, CardContent, Icon } from "../ui"
+import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import { Card, CardContent, Icon } from '../ui'
 
 export type QuickActionTileProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   title?: ReactNode
@@ -9,7 +9,14 @@ export type QuickActionTileProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   href?: string
 }
 
-export const QuickActionTile = ({ className = "", description, title, label, href, ...props }: QuickActionTileProps) => {
+export const QuickActionTile = ({
+  className = '',
+  description,
+  title,
+  label,
+  href,
+  ...props
+}: QuickActionTileProps) => {
   const heading = title ?? label
 
   const content = (
@@ -17,7 +24,9 @@ export const QuickActionTile = ({ className = "", description, title, label, hre
       <CardContent className="flex h-full items-start justify-between gap-4 p-6">
         <div>
           <p className="text-base font-semibold text-gray-900">{heading}</p>
-          {description ? <p className="mt-1 text-sm text-gray-600">{description}</p> : null}
+          {description ? (
+            <p className="mt-1 text-sm text-gray-600">{description}</p>
+          ) : null}
         </div>
         <Icon size="lg">→</Icon>
       </CardContent>

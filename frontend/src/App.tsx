@@ -23,6 +23,7 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/signup" element={<SignUpPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/catalog" element={<BookCatalog role="member" />} />
 
         {/* Member-only routes */}
         <Route element={<ProtectedRoute allowedRole="member" />}>

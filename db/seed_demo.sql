@@ -12,7 +12,47 @@
 BEGIN;
 
 -- =============================================================================
--- 1. USERS  (7 new — 6 members + 1 admin)
+-- 0. CLEANUP (make this seed re-runnable)
+-- =============================================================================
+DELETE FROM notifications
+WHERE notification_id::text LIKE 'e1000000-%'
+  OR user_id::text LIKE 'a1b2c3d4-0001-0001-0001-%';
+
+DELETE FROM reservations
+WHERE reservation_id::text LIKE 'd1000000-%'
+  OR user_id::text LIKE 'a1b2c3d4-0001-0001-0001-%';
+
+DELETE FROM fines
+WHERE fine_id::text LIKE 'c1000000-%'
+  OR user_id::text LIKE 'a1b2c3d4-0001-0001-0001-%'
+  OR transaction_id IN (
+    SELECT transaction_id
+    FROM transactions
+    WHERE user_id::text LIKE 'a1b2c3d4-0001-0001-0001-%'
+  );
+
+DELETE FROM transactions
+WHERE transaction_id::text LIKE 'b1000000-%'
+  OR user_id::text LIKE 'a1b2c3d4-0001-0001-0001-%';
+
+DELETE FROM users WHERE user_id::text LIKE 'a1b2c3d4-0001-0001-0001-%';
+
+UPDATE book_copies
+SET status = 'AVAILABLE'
+WHERE copy_id IN (
+  '7e0ec866-9987-49d9-881a-b30622ae1c78',
+  '32e48226-d1c0-4727-a93c-0386f97b31f8',
+  'c9e78686-ebe0-4f85-97f2-73ef27eb8cb7',
+  '472f30e3-5466-4124-95e5-262225070f85',
+  '4c131c1f-0d7d-42bc-9414-0fc22af68270',
+  'c781cfb6-9e1b-4cf3-8ff7-cc90bb0b9a8e',
+  '2a241b5f-f841-4dc0-a796-925f1a88c230',
+  'b1f77495-c1de-4dae-9655-f274ae28dba8',
+  'f39fda68-e399-46f5-aa02-3709237a260d'
+);
+
+-- =============================================================================
+-- 1. USERS  (8 new — 7 members + 1 admin)
 -- =============================================================================
 INSERT INTO users (
   user_id, email, password_hash, full_name, role,
@@ -96,6 +136,17 @@ INSERT INTO users (
     NOW() - INTERVAL '150 days',
     NOW() - INTERVAL '10 days',
     NOW() - INTERVAL '10 days'
+  ),
+
+  -- ── Member: new registration, no circulation yet (empty dashboard scenario) ─
+  (
+    'a1b2c3d4-0001-0001-0001-000000000008',
+    'noah.miller@gmail.com',
+    crypt('Password@123', gen_salt('bf', 10)),
+    'Noah Miller', 'member', true, NULL,
+    NOW() - INTERVAL '1 day',
+    NOW() - INTERVAL '6 hours',
+    NULL
   );
 
 
@@ -297,6 +348,17 @@ INSERT INTO transactions (
     NOW() - INTERVAL '14 days',
     NOW() - INTERVAL '10 days',
     'returned'
+  ),
+
+  -- Michael: marked LOST before due date (lost workflow scenario)
+  (
+    'b1000000-0000-0000-0000-000000000017',
+    'f39fda68-e399-46f5-aa02-3709237a260d',
+    'a1b2c3d4-0001-0001-0001-000000000004',
+    NOW() - INTERVAL '4 days',
+    NOW() + INTERVAL '10 days',
+    NULL,
+    'lost'
   );
 
 
@@ -313,6 +375,8 @@ UPDATE book_copies SET status = 'ISSUED' WHERE copy_id IN (
   '2a241b5f-f841-4dc0-a796-925f1a88c230',  -- Alice's overdue (The Body in the Ivy)
   'b1f77495-c1de-4dae-9655-f274ae28dba8'   -- Robert's overdue (Waiting: A Novel)
 );
+
+UPDATE book_copies SET status = 'LOST' WHERE copy_id = 'f39fda68-e399-46f5-aa02-3709237a260d';
 
 
 -- =============================================================================
@@ -409,6 +473,17 @@ INSERT INTO fines (
     'Book returned 4 days past due date. Fine charged at $0.50/day.',
     NOW() - INTERVAL '10 days',
     true
+  ),
+
+  -- Michael: lost-book replacement charge — UNPAID
+  (
+    'c1000000-0000-0000-0000-000000000009',
+    'b1000000-0000-0000-0000-000000000017',
+    'a1b2c3d4-0001-0001-0001-000000000004',
+    35.00,
+    'Lost copy replacement charge for "Savage Art".',
+    NOW() - INTERVAL '3 days',
+    false
   );
 
 
@@ -649,6 +724,15 @@ INSERT INTO notifications (
     'You have returned "Little Wilson and Big God" on time. No fines applied.',
     'RETURN', true,
     NOW() - INTERVAL '18 days'
+  ),
+
+  -- Michael: lost-book charge notice
+  (
+    'e1000000-0000-0000-0000-000000000018',
+    'a1b2c3d4-0001-0001-0001-000000000004',
+    'Your copy of "Savage Art" has been marked as lost. A replacement fee of $35.00 has been issued.',
+    'FINE', false,
+    NOW() - INTERVAL '3 days'
   );
 
 COMMIT;
