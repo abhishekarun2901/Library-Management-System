@@ -94,4 +94,4 @@ cd backend
 
 ## License
 
-Use your organization’s preferred license (MIT/Apache-2.0/Proprietary) and add a `LICENSE` file at the repository root.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
