@@ -56,8 +56,10 @@ Thumbs.db
 !.vscode/extensions.json
 
 # ── Project-specific generated / non-essential files ─────────────────────────
-repomix-output*.xmlfull.xml
-repomix-output*.htmlfull.xml
 frontend/storybook-static/
 docs/postman/e2e_test_report.json
 docs/postman/e2e_test_report.txt
+
+.env
+.repomix
+.vscode
